@@ -5,7 +5,7 @@ compile in terminal, needs ij.jar in classpath
 ```
 #!bash
 cd src
-javac -cp ~/ij.jar Mouse_Pinpointer.java
+javac -cp IJ_HOME/ij.jar Mouse_Pinpointer.java
 
 ```
 
@@ -13,12 +13,12 @@ copy the compiled class to imagej plugins directory and
 
 ```
 #!bash
-cp Mouse_Pinpointer.class /ImageJ/plugins/
+cp Mouse_Pinpointer.class IJ_HOME/plugins/
 ```
 
 ```
 #!bash
-java -jar /ImageJ/ij.jar -ijpath /ImageJ/plugins/
+java -jar IJ_HOME/ij.jar -ijpath IJ_HOME/plugins/
 ```
 
 
