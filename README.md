@@ -1,13 +1,17 @@
-# ImageJ plugin which listens and plot the coordinates of the mouse clicks over the opened (512,512,120) blank image stack. 
-# Useful to record the mouse pinpointing, make point annotations.
-compile in terminal, needs ij.jar in classpath
+# auxiliary ImageJ plugins 
+
+To compile plugin .java in terminal, needs ij.jar in classpath
 
 ```
 #!bash
 cd src
-javac -cp IJ_HOME/ij.jar Mouse_Pinpointer.java
+javac -cp IJ_HOME/ij.jar ImageJ_Plugin.java
 
 ```
+
+Mouse_Listener.java -- listens and plot the coordinates of the mouse clicks over the opened (512,512,120) blank image stack, useful to record the mouse pinpointing, make point annotations
+
+Stack_Ovals.java --
 
 copy the compiled class to imagej plugins directory and
 
