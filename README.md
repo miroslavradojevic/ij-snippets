@@ -1,29 +1,25 @@
-# auxiliary ImageJ plugins 
+# Handy ImageJ plugin snippets
 
-To compile plugin .java in terminal, needs ij.jar in classpath
-
+To compile plugin .java in terminal, javac needs ij.jar in classpath
 ```
 #!bash
 cd src
-javac -cp IJ_HOME/ij.jar ImageJ_Plugin.java
+javac -cp ij.jar Some_Plugin.java
 
 ```
+Copy the compiled class to imagej plugins directory
+```
+#!bash
+cp Some_Plugin.class $ImageJ_Home/plugins/
+```
+start ImageJ in terminal
+```
+#!bash
+java -jar $ImageJ_Home/ij.jar -ijpath $ImageJ_Home/plugins/
+```
+and follow **menu**: *ImageJ>Plugins>Mouse Pinpointer*
 
 Mouse_Listener.java -- listens and plot the coordinates of the mouse clicks over the opened (512,512,120) blank image stack, useful to record the mouse pinpointing, make point annotations
 
-Stack_Ovals.java --
+Stack_Ovals.java -- plots list of random (x,y,z,r) Ovals on ImageStack and shows the overlayed image. Useful to export object tracking visualizations.
 
-copy the compiled class to imagej plugins directory and
-
-```
-#!bash
-cp Mouse_Pinpointer.class IJ_HOME/plugins/
-```
-
-```
-#!bash
-java -jar IJ_HOME/ij.jar -ijpath IJ_HOME/plugins/
-```
-
-
-**menu**: *ImageJ>Plugins>Mouse Pinpointer*
