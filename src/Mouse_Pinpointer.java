@@ -1,9 +1,7 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.Prefs;
 import ij.gui.ImageCanvas;
-import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 
@@ -11,10 +9,10 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
 // compile in terminal
-// $ javac -cp ~/ij.jar Mouse_Listener.java
+// $ javac -cp ij.jar Mouse_Listener.java
 
-// copy the compiled class to imagej plugins directory and
-// $ cp Mouse_Listener.class /ImageJ/plugins/
+// copy the compiled class to imagej plugins directory
+// $ cp Mouse_Listener.class $ImageJ_HOME/plugins/
 
 // menu: ImageJ>Plugins>Mouse Pinpointer
 
