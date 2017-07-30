@@ -101,8 +101,6 @@ public class SampleCirc implements PlugIn {
 
     public void run(String s) {
 
-//        IJ.log("read image...");
-
         String image_path; // read input image, store the most recent path in Prefs
         String in_folder = Prefs.get("com.braincadet.platedetection.dir", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(in_folder);
@@ -156,6 +154,9 @@ public class SampleCirc implements PlugIn {
 
 
         }
+
+        // calculate likelihood for each circle (prior is uniform)
+
 
         // show image with overlays
         ImagePlus aa = getImagePlus(inputImage);
