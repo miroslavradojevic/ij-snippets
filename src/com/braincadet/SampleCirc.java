@@ -10,6 +10,8 @@ import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 
+import java.awt.*;
+import java.util.ArrayList;
 import java.util.Random;
 
 /**
@@ -18,9 +20,15 @@ import java.util.Random;
 public class SampleCirc implements PlugIn {
 
     int rMin, rMax;
-    int dMin = 2, dMax = 3;
+//    int dMin = 2, dMax = 3;
+    int d = 3;
+
+    int margin = 1;
+
     float samplingStep = 2f;
-    int numberOfSamples = 100;
+    int ringValuesCountLimit = 500;
+
+    int numberOfRingSamples = 50;
 
     // Struct containing image information
     private class Image8 {
@@ -71,7 +79,7 @@ public class SampleCirc implements PlugIn {
             }
         }
 
-        input_image = null; // Ensure to clean it
+        input_image = null; // GC cleans it
 
         return img;
 
@@ -99,6 +107,40 @@ public class SampleCirc implements PlugIn {
         return new ImagePlus(image8.ShortTitle, imageStackOut);
     }
 
+    private class Ring{
+
+        public int x;
+        public int y;
+        public int r;
+        public int d;
+        public float prior;
+        public float likelihood;
+        public float posterior;
+
+
+
+//        Ring(int x, int y, int r, int d, float prior, float likelihood) {
+//            super(x, y, r, d, prior);
+//            this.likelihood = likelihood;
+//        }
+
+        Ring(int x, int y, int r, int d, float prior){
+            this.x = x;
+            this.y = y;
+            this.r = r;
+            this.d = d;
+            this.prior = prior;
+            this.likelihood = Float.NaN;
+            this.posterior = Float.NaN;
+        }
+
+        public void print() {
+            IJ.log("x="+this.x+" y="+y+" r="+r+" d="+d+" prior="+this.prior+" likelihood="+this.likelihood+" posterior="+posterior);
+        }
+
+
+    }
+
     public void run(String s) {
 
         String image_path; // read input image, store the most recent path in Prefs
@@ -117,45 +159,56 @@ public class SampleCirc implements PlugIn {
             return;
         }
 
-        IJ.log("generating circles...");
+        IJ.log("-- generating circles...");
 
         // Random sample the circles (x,y,r,d)
         rMin = Math.round(0.1f * Math.min(inputImage.Width, inputImage.Height));
         rMax = Math.round(0.45f * Math.min(inputImage.Width, inputImage.Height));
+        IJ.log(rMin + " -- " + rMax);
 
-        Overlay circleSampleOverlay = new Overlay();
         Random rand = new Random();
 
-        while (circleSampleOverlay.size() <= numberOfSamples) {
+        Overlay circleSampleOverlay = new Overlay();
+        ArrayList<Ring> rings = new ArrayList<Ring>(numberOfRingSamples);
 
-            int r = (rand.nextInt() % (rMax - rMin)) + rMin; // [rMin,rMax]
-            int d = (rand.nextInt() % (dMax - dMin)) + dMin; // [dMin, dMax]
 
-            int xMin = r+d;
-            int xMax = inputImage.Width - (r+d);
+        while (circleSampleOverlay.size() <= numberOfRingSamples) { // Also rings.size()
+
+            int r = rMin + (int)(Math.random() * ((rMax - rMin) + 1)); // [rMin,rMax]
+
+//            int d = ...randomize...; // [dMin, dMax]
+
+            int xMin = r+d+margin;
+            int xMax = inputImage.Width - xMin;
             int x = xMin + (int)(Math.random() * ((xMax - xMin) + 1));
 
-            int yMin = r+d;
-            int yMax =  inputImage.Height - (r+d);
-            int y = yMin + (int)(Math.random() * ((yMax - yMin) + 1));;
+            int yMin = r+d+margin;
+            int yMax =  inputImage.Height - yMin;
+            int y = yMin + (int)(Math.random() * ((yMax - yMin) + 1));
 
-            boolean isInsideImage = true; // x-r-d >=0f && x+r < inputImage.Width &&  y-r >=0 && y+r < inputImage.Width ;
+//            boolean isInsideImage = true; // x-r-d >=0f && x+r < inputImage.Width &&  y-r >=0 && y+r < inputImage.Width ;
+//            if (isInsideImage) {
+//            }
 
-            if (isInsideImage) {
+            OvalRoi circleGen = new OvalRoi(x-r, y-r, 2*r, 2*r);
+            circleGen.setStrokeWidth(2*d);
+//            circleGen.setFillColor(new Color(1f, 1f, 1f, 0.2f));
+            circleGen.setStrokeColor(new Color(1f, 1f, 0f, 0.2f));
 
-//                IJ.log("x=" + x + " [" +xMin + "," + xMax + "], y=" + y + " [" +yMin + "," + yMax+"], r=" + r + ", d=" + d + " | r=[" + rMin + "," + rMax + "] | d=[" + dMin + "," + dMax + "]");
+            Ring ringToAdd = new Ring(x, y, r, d, 1f/numberOfRingSamples);
 
-                OvalRoi circleGen = new OvalRoi(x-r, y-r, 2*r, 2*r);
-//                OvalRoi circleGen = new OvalRoi(0, 0, 100, 100);
-
-                circleSampleOverlay.add(circleGen);
-
-            }
-
+            circleSampleOverlay.add(circleGen);
+            rings.add(ringToAdd);
 
         }
 
-        // calculate likelihood for each circle (prior is uniform)
+        IJ.log("---");
+        for (int i = 0; i < rings.size(); i++) {
+            rings.get(i).print();
+        }
+        IJ.log("---");
+
+
 
 
         // show image with overlays
@@ -163,15 +216,27 @@ public class SampleCirc implements PlugIn {
         aa.show();
         aa.setOverlay(circleSampleOverlay);
 
+        // calculate likelihood for each circle (prior is uniform)
+
+
+        // Allocate storage for the ring samples
+        float[] ringValues = new float[ringValuesCountLimit];
+        float[] ringValuesInner = new float[ringValuesCountLimit];
+        int ringValuesNumber = Integer.MIN_VALUE;
+        IJ.log("Integer.MIN_VALUE = " + Integer.MIN_VALUE);
+
+        //---
+
+
 
     }
 
-    private class cRoi {
-        public float x;
-        public float y;
-        public float r;
-        public float d;
-    }
+//    private class cRoi {
+//        public float x;
+//        public float y;
+//        public float r;
+//        public float d;
+//    }
 
     private static String getFileExtension(String FilePath)
     {
