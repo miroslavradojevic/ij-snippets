@@ -21,14 +21,14 @@ public class SampleCirc implements PlugIn {
 
     int rMin, rMax;
 //    int dMin = 2, dMax = 3;
-    int d = 3;
+    int d = 5;
 
     int margin = 1;
 
     float samplingStep = 2f;
     int ringValuesCountLimit = 500;
 
-    int numberOfRingSamples = 50;
+    int numberOfRingSamples = 100;
 
     // Struct containing image information
     private class Image8 {
@@ -117,8 +117,6 @@ public class SampleCirc implements PlugIn {
         public float likelihood;
         public float posterior;
 
-
-
 //        Ring(int x, int y, int r, int d, float prior, float likelihood) {
 //            super(x, y, r, d, prior);
 //            this.likelihood = likelihood;
@@ -193,20 +191,21 @@ public class SampleCirc implements PlugIn {
             OvalRoi circleGen = new OvalRoi(x-r, y-r, 2*r, 2*r);
             circleGen.setStrokeWidth(2*d);
 //            circleGen.setFillColor(new Color(1f, 1f, 1f, 0.2f));
-            circleGen.setStrokeColor(new Color(1f, 1f, 0f, 0.2f));
+            circleGen.setStrokeColor(new Color(1f, 1f, 0f, 0.75f));
 
             Ring ringToAdd = new Ring(x, y, r, d, 1f/numberOfRingSamples);
+            ringToAdd.posterior = 1f/numberOfRingSamples;
 
             circleSampleOverlay.add(circleGen);
             rings.add(ringToAdd);
 
         }
 
-        IJ.log("---");
+        IJ.log("done.");
         for (int i = 0; i < rings.size(); i++) {
             rings.get(i).print();
         }
-        IJ.log("---");
+//        IJ.log("---");
 
 
 
@@ -226,8 +225,6 @@ public class SampleCirc implements PlugIn {
         IJ.log("Integer.MIN_VALUE = " + Integer.MIN_VALUE);
 
         //---
-
-
 
     }
 

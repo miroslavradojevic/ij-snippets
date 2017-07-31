@@ -8,4 +8,4 @@ mycode.class
 *.jar
 
 # add an exception (using !) to the preceding rule to track a specific file
-!plate_det.jar
+#!plate_det.jar
