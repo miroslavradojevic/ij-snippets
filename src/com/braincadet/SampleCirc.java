@@ -12,6 +12,7 @@ import ij.process.ByteProcessor;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -26,9 +27,9 @@ public class SampleCirc implements PlugIn {
     int margin = 1;
 
     float samplingStep = 2f;
-    int ringValuesCountLimit = 500;
+    int ringValuesCountLimit = 500; // will affect the sampling density
 
-    int numberOfRingSamples = 100;
+    int numberOfRingSamples = 50;
 
     // Struct containing image information
     private class Image8 {
@@ -117,15 +118,10 @@ public class SampleCirc implements PlugIn {
         public float likelihood;
         public float posterior;
 
-//        Ring(int x, int y, int r, int d, float prior, float likelihood) {
-//            super(x, y, r, d, prior);
-//            this.likelihood = likelihood;
-//        }
-
         Ring(int x, int y, int r, int d, float prior){
             this.x = x;
             this.y = y;
-            this.r = r;
+            this.r = (r<d)? d : r ; //  should not be less than d (half of the ring strip)
             this.d = d;
             this.prior = prior;
             this.likelihood = Float.NaN;
@@ -135,7 +131,6 @@ public class SampleCirc implements PlugIn {
         public void print() {
             IJ.log("x="+this.x+" y="+y+" r="+r+" d="+d+" prior="+this.prior+" likelihood="+this.likelihood+" posterior="+posterior);
         }
-
 
     }
 
@@ -164,8 +159,6 @@ public class SampleCirc implements PlugIn {
         rMax = Math.round(0.45f * Math.min(inputImage.Width, inputImage.Height));
         IJ.log(rMin + " -- " + rMax);
 
-        Random rand = new Random();
-
         Overlay circleSampleOverlay = new Overlay();
         ArrayList<Ring> rings = new ArrayList<Ring>(numberOfRingSamples);
 
@@ -185,8 +178,6 @@ public class SampleCirc implements PlugIn {
             int y = yMin + (int)(Math.random() * ((yMax - yMin) + 1));
 
 //            boolean isInsideImage = true; // x-r-d >=0f && x+r < inputImage.Width &&  y-r >=0 && y+r < inputImage.Width ;
-//            if (isInsideImage) {
-//            }
 
             OvalRoi circleGen = new OvalRoi(x-r, y-r, 2*r, 2*r);
             circleGen.setStrokeWidth(2*d);
@@ -205,10 +196,6 @@ public class SampleCirc implements PlugIn {
         for (int i = 0; i < rings.size(); i++) {
             rings.get(i).print();
         }
-//        IJ.log("---");
-
-
-
 
         // show image with overlays
         ImagePlus aa = getImagePlus(inputImage);
@@ -217,23 +204,33 @@ public class SampleCirc implements PlugIn {
 
         // calculate likelihood for each circle (prior is uniform)
 
+        float[] ringValues = new float[ringValuesCountLimit]; // Allocate storage for the ring samples
+        float[] outVals = new float[4];
+        for (int i = 0; i < rings.size(); i++) {
 
-        // Allocate storage for the ring samples
-        float[] ringValues = new float[ringValuesCountLimit];
-        float[] ringValuesInner = new float[ringValuesCountLimit];
-        int ringValuesNumber = Integer.MIN_VALUE;
-        IJ.log("Integer.MIN_VALUE = " + Integer.MIN_VALUE);
+            int count = ringLikelihood(
+                    rings.get(i),
+                    inputImage.ImageData,
+                    inputImage.Width,
+                    inputImage.Height,
+                    inputImage.Length,
+                    ringValues,
+                    samplingStep,
+                    outVals
+            );
 
-        //---
+
+
+//            IJ.log(i + " : " + Arrays.toString(outVals));
+        }
+
+
+
+//        float[] ringValuesInner = new float[ringValuesCountLimit];
+//        int ringValuesNumber = Integer.MIN_VALUE;
+//        IJ.log("Integer.MIN_VALUE = " + Integer.MIN_VALUE);
 
     }
-
-//    private class cRoi {
-//        public float x;
-//        public float y;
-//        public float r;
-//        public float d;
-//    }
 
     private static String getFileExtension(String FilePath)
     {
@@ -245,6 +242,164 @@ public class SampleCirc implements PlugIn {
         }
 
         return extension;
+    }
+
+    private static int ringLikelihood(Ring inputRing,
+                                      byte[] inputImage,
+                                      int inputImageWidth,
+                                      int inputImageHeight,
+                                      int inputImageLength, // In case it is 3D, keep 0 if 2D image
+                                      float[] ringValues,
+                                      float samplingStep,
+                                      float[] outVals) {    // outVals[0] = meanRing
+                                                            // outVals[1] = ;
+                                                            // outVals[2] = ;
+                                                            // outVals[3] = ;
+        float alphaStepMin = (2*3.14f) / ringValues.length;
+//        IJ.log("alphaStepMin = " + alphaStepMin);
+        float alphaStep = samplingStep / inputRing.r; // Sample preferably each samplingStep, unless there would be more values than ringValues array can accommodate
+//        IJ.log("alphaStep = " + alphaStep);
+        //
+        alphaStep = (alphaStep<alphaStepMin)? alphaStepMin : alphaStep ;
+
+//        IJ.log("use sampling = " + (alphaStep<alphaStepMin));
+
+        float meanRing = 0, meanRingInner = 0, meanRingOuter = 0;
+        float k0, k1;
+        float ringValue, ringValueOuter, ringValueInner;
+
+        float x,y,z;
+
+        int count = 0;
+
+        // sample ring values
+        for (float alpha = 0; alpha < 2*3.14f; alpha+=alphaStep) {
+
+            if (count>=ringValues.length) {break;}
+
+            x = inputRing.x+.5f + inputRing.r * (float) Math.cos(alpha);
+            y = inputRing.y+.5f + inputRing.r * (float) Math.sin(alpha);
+            z = 0;
+
+            ringValue = interpolate(x, y, z, inputImage, inputImageWidth, inputImageHeight, inputImageLength);
+
+            if (Float.isNaN(ringValue)) {continue;}
+
+            x = inputRing.x+.5f + (inputRing.r - inputRing.d) * (float) Math.cos(alpha);
+            y = inputRing.y+.5f + (inputRing.r - inputRing.d) * (float) Math.sin(alpha);
+            z = 0;
+
+            ringValueInner = interpolate(x, y, z, inputImage, inputImageWidth, inputImageHeight, inputImageLength);
+
+            if (Float.isNaN(ringValueInner)) {continue;}
+
+            x = inputRing.x+.5f + (inputRing.r + inputRing.d) * (float) Math.cos(alpha);
+            y = inputRing.y+.5f + (inputRing.r + inputRing.d) * (float) Math.sin(alpha);
+            z = 0;
+
+            ringValueOuter = interpolate(x, y, z, inputImage, inputImageWidth, inputImageHeight, inputImageLength);
+
+            if (Float.isNaN(ringValueOuter)) {continue;}
+
+            // all correctly read
+
+            ringValues[count] = ringValue;
+
+            count++;
+
+            k0 = (count-1f) / count;
+            k1 = 1f / count;
+
+            meanRing = k0 * meanRing + k1 * ringValue; // Iterative mean for the ring
+
+            meanRingInner = k0 * meanRingInner + k1 * (float)Math.pow(ringValue - ringValueInner,2); // Iterative mean for the inner ring
+
+            meanRingOuter = k0 * meanRingOuter + k1 * (float)Math.pow(ringValue - ringValueOuter, 2); // Iterative mean for the outer ring
+
+        }
+
+        outVals[0] = meanRing;
+        outVals[1] = meanRingInner;
+        outVals[2] = meanRingOuter;
+
+        // Go through the ringValues again to compute the variance of the ring values
+        float varianceRing = 0;
+        for (int i = 0; i < count; i++) {
+            varianceRing += Math.pow(ringValues[i] - meanRing, 2);
+        }
+        if (count>=2) {
+            varianceRing /= count-1; // count needs to be >=2
+        }
+        else {
+            varianceRing = Float.NaN;
+        }
+
+        outVals[3] = varianceRing;
+
+        return count;
+
+    }
+
+//    private static float interpolate(float atX, float atY, float atZ, byte[] inputImage, int inputImageWidth, int inputImageHeight, int inputImageLength) {
+//        return 1f;
+//    }
+
+    private static float interpolate(float atX, float atY, float atZ, byte[] inputImage, int inputImageWidth, int inputImageHeight, int inputImageLength) {
+
+        if (inputImageLength<=0) {
+            return Float.NaN;
+        }
+
+        int x1 = (int) atX;
+        int x2 = x1 + 1;
+        float x_frac = atX - x1;
+
+        int y1 = (int) atY;
+        int y2 = y1 + 1;
+        float y_frac = atY - y1;
+
+        if (inputImageLength==1) { // atZ is not necessary
+
+            boolean isIn2D = x1>=0 && x2<inputImageWidth && y1>=0 && y2<inputImageHeight;
+            if(!isIn2D) return Float.NaN;
+
+            // 2D neighbourhood
+            float I11_1 = inputImage[y1*inputImageWidth+x1] & 0xff; // bit shifting will result in an int which is cast into float automatically
+            float I12_1 = inputImage[y1*inputImageWidth+x2] & 0xff;
+            float I21_1 = inputImage[y2*inputImageWidth+x1] & 0xff;
+            float I22_1 = inputImage[y2*inputImageWidth+x2] & 0xff;
+
+            return (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1);
+
+        }
+        else {
+
+            int z1 = (int) atZ;
+            int z2 = z1 + 1;
+            float z_frac = atZ - z1;
+
+            boolean isIn3D = y1>=0 && y2<inputImageHeight && x1>=0 && x2<inputImageWidth && z1>=0 && z2<inputImageLength;
+            if (!isIn3D) return Float.NaN;
+
+            // 3D neighbourhood
+            float I11_1 = inputImage[z1*inputImageWidth*inputImageHeight+y1*inputImageWidth+x1] & 0xff;
+            float I12_1 = inputImage[z1*inputImageWidth*inputImageHeight+y1*inputImageWidth+x2] & 0xff;
+            float I21_1 = inputImage[z1*inputImageWidth*inputImageHeight+y2*inputImageWidth+x1] & 0xff;
+            float I22_1 = inputImage[z1*inputImageWidth*inputImageHeight+y2*inputImageWidth+x2] & 0xff;
+
+            float I11_2 = inputImage[z2*inputImageWidth*inputImageHeight+y1*inputImageWidth+x1] & 0xff;
+            float I12_2 = inputImage[z2*inputImageWidth*inputImageHeight+y1*inputImageWidth+x2] & 0xff;
+            float I21_2 = inputImage[z2*inputImageWidth*inputImageHeight+y2*inputImageWidth+x1] & 0xff;
+            float I22_2 = inputImage[z2*inputImageWidth*inputImageHeight+y2*inputImageWidth+x2] & 0xff;
+
+            return (1-z_frac)  *
+                    (  (1-y_frac) * ((1-x_frac)*I11_1 + x_frac*I12_1) + (y_frac) * ((1-x_frac)*I21_1 + x_frac*I22_1) )   +
+                    z_frac      *
+                            (  (1-y_frac) * ((1-x_frac)*I11_2 + x_frac*I12_2) + (y_frac) * ((1-x_frac)*I21_2 + x_frac*I22_2) );
+
+        }
+
+
     }
 
 }
