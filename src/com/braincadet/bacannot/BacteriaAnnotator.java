@@ -4,15 +4,17 @@ import ij.IJ;
 import ij.ImageListener;
 import ij.ImagePlus;
 import ij.Prefs;
-import ij.gui.ImageCanvas;
-import ij.gui.ImageWindow;
-import ij.gui.OvalRoi;
-import ij.gui.Overlay;
+import ij.gui.*;
+import ij.io.FileSaver;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import ij.plugin.frame.RoiManager;
+import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
 
 import java.awt.event.*;
 import java.awt.Color;
+import java.io.File;
 
 public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionListener, KeyListener, ImageListener {
 
@@ -27,12 +29,15 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     private static final int  changeR = 2;
     private static final Color ignoreColor = Color.CYAN;
-    private static final Color annotColor = new Color(0, 255, 0, 30); // Color.GREEN;
+    private static final Color annotColor = new Color(255, 255, 0, 60);
+
+    private static final char EXPORT_COMMAND = 'e';
+    private static final char INCREASE_CIRCLE_RADIUS = 'u';
+    private static final char DECREASE_CIRCLE_RADIUS = 'j';
+    private static final String ANNNOT_DIR_NAME = "annot";
 
     @Override
     public void run(String s) {
-
-        IJ.log("BacteriaAnnotator...");
 
         // Open the image for the annotation
         String inFolder = Prefs.get("com.braincadet.bacannot.inFolder", System.getProperty("user.home"));
@@ -66,11 +71,22 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         pickY = 0;
 
         imDir = inImg.getOriginalFileInfo().directory;
-        IJ.log("inImg!=null : "+ (inImg!=null)+"\nimagePath : "+imPath+"\nimageTitle : "+inImg.getTitle());
         imName = inImg.getShortTitle();
 
-        // look for the annotations and initialize Overlays
+        // look for the annotations and initialize Overlays with the annotations encountered in ./ANNNOT_DIR_NAME/
         ovAnnot = new Overlay();
+
+        // use RoiManager to read existing annotation overlay if existent
+        File ff = new File(imDir + File.separator + ANNNOT_DIR_NAME + File.separator + imName + ".zip");
+
+        System.out.println(ff.getPath());
+
+        if (ff.exists()){
+            RoiManager rm = new RoiManager();
+            rm.runCommand("Open", ff.getPath());
+            rm.moveRoisToOverlay(inImg);
+            rm.close();
+        }
 
         begunPicking = false;
         inImg.show();
@@ -96,6 +112,8 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         // update the pick circle
         OvalRoi circAdd = new OvalRoi(pickX-pickR+.0f, pickY-pickR+.0f, 2*pickR, 2*pickR);
+        circAdd.setStrokeColor(Color.RED);
+        circAdd.setStrokeWidth(8);
 
         if (!begunPicking) {
             begunPicking = true;
@@ -115,9 +133,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         boolean found = false;
 
-
-        IJ.log("deleted!");
-
+        // TODO...
 
     }
 
@@ -138,28 +154,21 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             y = y+r/1-.0f;
 
             boolean overlap = (x-pickX)*(x-pickX)+(y-pickY)*(y-pickY)<=(r+pickR)*(r+pickR);
-            overlap = true;
+            overlap = false; // don't check if it overlaps
 
             // allow only ignores on top of ignores
             if (col.equals(ignoreColor)) {
-
                 if (overlap && !cl.equals(ignoreColor)) {
                     IJ.showStatus("ignore cannot be added on top of existing non-ignore");
                     return;
                 }
-
             }
             else {
-
                 if (overlap) {
                     IJ.showStatus("non-ignore cannot be added on top of anything");
                     return;
                 }
-
             }
-
-
-
         }
 
         OvalRoi cc = new OvalRoi(pickX-pickR+.0f, pickY-pickR+.0f, 2*pickR, 2*pickR);
@@ -176,30 +185,19 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         imCanv.setOverlay(ovAnnot);
         imCanv.getImage().updateAndDraw();
 
-        IJ.showStatus("added, current size: " + (ovAnnot.size()-1));
+        IJ.showStatus("added, current number of annotations: " + (ovAnnot.size()-1));
 
     }
 
     @Override
-    public void mousePressed(MouseEvent e) {}
-
-    @Override
-    public void mouseReleased(MouseEvent e) {}
-
-    @Override
-    public void mouseEntered(MouseEvent e) {}
-
-    @Override
-    public void mouseExited(MouseEvent e) {}
-
-    @Override
     public void mouseClicked(MouseEvent e) {
+
         pickX = 	imCanv.offScreenX(e.getX());
         pickY = 	imCanv.offScreenY(e.getY());
 
         imCanv.getImage().updateAndDraw();
 
-        IJ.log("x=" + pickX + " y=" + pickY);
+        System.out.println("click at x=" + pickX + " y=" + pickY);
 
         // process the clicked circle
         addCircle(annotColor);
@@ -233,16 +231,81 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     @Override
     public void keyTyped(KeyEvent e) {
-        if (e.getKeyChar()=='u') pickR += (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
-        if (e.getKeyChar()=='j') pickR -= (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
-        if (e.getKeyChar()=='+') imCanv.zoomIn((int) pickX, (int) pickY);
-        if (e.getKeyChar()=='-') imCanv.zoomOut((int) pickX, (int) pickY);
-//        if (e.getKeyChar()=='b' || e.getKeyChar()=='3') addCircle(annotColor);
-//        if (e.getKeyChar()=='e' || e.getKddeyChar()=='1') addCircle(end_color);
+
+        if (e.getKeyChar() == INCREASE_CIRCLE_RADIUS) {
+            pickR += (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
+            IJ.log("R+=" + changeR + ", R = " + pickR);
+        }
+
+        if (e.getKeyChar() == DECREASE_CIRCLE_RADIUS) {
+            pickR -= (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
+            IJ.log("R-="+changeR+", R = " + pickR);
+        }
+
+        if (e.getKeyChar()=='+') {
+            imCanv.zoomIn((int) pickX, (int) pickY);
+        }
+
+        if (e.getKeyChar()=='-') {
+            imCanv.zoomOut((int) pickX, (int) pickY);
+        }
+
+        if (e.getKeyChar()==EXPORT_COMMAND) {
+
+            File directory = new File(imDir + File.separator + ANNNOT_DIR_NAME + File.separator);
+
+            if (! directory.exists()){
+                directory.mkdir(); // use directory.mkdirs(); for subdirs
+            }
+
+//            ImageProcessor imOut = new ByteProcessor(inImg.getWidth(), inImg.getHeight());
+            ImagePlus imOut = new ImagePlus(imName, new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
+
+            RoiManager rm = new RoiManager();
+
+            for (int i = 0; i < ovAnnot.size() - 1; i++) { // exclude the last one because it is the pointer circle
+
+                int xPatch = ovAnnot.get(i).getBounds().x;
+                int yPatch = ovAnnot.get(i).getBounds().y;
+                int wPatch = ovAnnot.get(i).getBounds().width;
+//                int hPatch = ovAnnot.get(i).getBounds().height;
+
+                byte[] ovAnnotArray = (byte[]) ovAnnot.get(i).getMask().convertToByteProcessor().getPixels(); //.getMaskArray();
+                byte[] imOutArray = (byte[]) imOut.getProcessor().getPixels();
+
+                for (int j = 0; j < ovAnnotArray.length; j++) {
+                    if ( (ovAnnotArray[j] & 0xff) == 255 ) {
+                        // get global image coords and overwrite I(xOut, yOut) to 255
+                        int xOut = xPatch + (j%wPatch);
+                        int yOut = yPatch + (j/wPatch);
+                        imOutArray[yOut * inImg.getWidth() + xOut] = (byte) 255;
+                    }
+                }
+
+                // go through 255 elements of tt and draw them to the offset location
+                rm.addRoi(ovAnnot.get(i));
+            }
+
+            FileSaver fs = new FileSaver(imOut);
+            fs.saveAsTiff(directory.getPath() + File.separator + imName + ".tif");
+
+            rm.runCommand("Save", directory.getPath() + File.separator + imName + ".zip");
+            rm.moveRoisToOverlay(imOut);
+
+            imOut.show();
+            rm.close();
+
+            // save the annotated image
+
+        } //addCircle(end_color); //  || e.getKddeyChar()=='1'
 //        if (e.getKeyChar()=='n' || e.getKeyChar()=='0') addCircle(none_color);
 //        if (e.getKeyChar()=='c' || e.getKeyChar()=='4') addCircle(cross_color);
 //        if (e.getKeyChar()=='i' || e.getKeyChar()=='7') addCircle(ignoreColor);
-        if (e.getKeyChar()=='d') removeCircle();
+
+        if (e.getKeyChar()=='d') {
+            removeCircle();
+        }
+
         if (e.getKeyChar()=='s') {
 //            GenericDialog gd = new GenericDialog("Save?");
 //            gd.addStringField("output path", gndtth_path, gndtth_path.length()+10);
@@ -255,14 +318,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {
-
-    }
-
-    @Override
-    public void mouseDragged(MouseEvent e) {
-
-    }
+    public void mouseDragged(MouseEvent e) {}
 
     @Override
     public void mouseMoved(MouseEvent e) {
@@ -270,12 +326,6 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         pickY = imCanv.offScreenY(e.getY());
         updateCircle();
     }
-
-    @Override
-    public void imageOpened(ImagePlus imagePlus) {}
-
-    @Override
-    public void imageUpdated(ImagePlus imagePlus) {}
 
     @Override
     public void imageClosed(ImagePlus imagePlus) {
@@ -286,10 +336,10 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             imCanv.removeKeyListener(this);
         ImagePlus.removeImageListener(this);
 
-//        GenericDialog gd = new GenericDialog("Save?");
+        GenericDialog gd = new GenericDialog("Save?");
 //        gd.addStringField("output path", gndtth_path, gndtth_path.length()+10);
-//        gd.showDialog();
-//        if (gd.wasCanceled()) return;
+        gd.showDialog();
+        if (gd.wasCanceled()) return;
 //        String gndtth_path_spec = gd.getNextString();
 //        export(gndtth_path_spec);
 
@@ -298,4 +348,25 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     @Override
     public void keyPressed(KeyEvent e) {}
+
+    @Override
+    public void imageOpened(ImagePlus imagePlus) {}
+
+    @Override
+    public void imageUpdated(ImagePlus imagePlus) {}
+
+    @Override
+    public void keyReleased(KeyEvent e) {}
+
+    @Override
+    public void mouseReleased(MouseEvent e) {}
+
+    @Override
+    public void mousePressed(MouseEvent e) {}
+
+    @Override
+    public void mouseEntered(MouseEvent e) {}
+
+    @Override
+    public void mouseExited(MouseEvent e) {}
 }
