@@ -123,7 +123,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         // update the pick circle
         OvalRoi circAdd = new OvalRoi(pickX-pickR+.0f, pickY-pickR+.0f, 2*pickR, 2*pickR);
         circAdd.setStrokeColor(Color.RED);
-        circAdd.setStrokeWidth(8);
+        circAdd.setStrokeWidth(1);
 
         if (!begunPicking) {
             begunPicking = true;
@@ -183,6 +183,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         rm.close();
 
         if (showResult) {
+            imOut.setTitle(inImg.getTitle()+"annot");
             imOut.show();
         }
 
@@ -349,21 +350,37 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
     @Override
     public void imageClosed(ImagePlus imagePlus) {
 
-        if (imWind!=null)
-            imWind.removeKeyListener(this);
-        if (imCanv!=null)
-            imCanv.removeKeyListener(this);
-        ImagePlus.removeImageListener(this);
+        String closedImageName = imagePlus.getTitle();
+        String imputImageName = inImg.getTitle();
 
-        GenericDialog gd = new GenericDialog("Save");
-        gd.addMessage("Export annotations before closing?");
-        gd.showDialog();
-        if (gd.wasCanceled()) {
-            return;
+        if (closedImageName.equals((imputImageName))) {
+
+
+
+            GenericDialog gd = new GenericDialog("Save");
+            gd.addMessage("Export annotations before closing?");
+            gd.showDialog();
+            if (gd.wasCanceled()) {
+                return;
+            }
+            else {
+                exportOverlayAnnot(true);
+            }
+
+            if (imWind!=null)
+                imWind.removeKeyListener(this);
+
+            if (imCanv!=null)
+                imCanv.removeKeyListener(this);
+
+            ImagePlus.removeImageListener(this);
+
         }
         else {
-            exportOverlayAnnot(true);
+            System.out.println("closed image was not the input image.");
         }
+
+
     }
 
     @Override
