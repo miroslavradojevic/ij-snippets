@@ -4,15 +4,17 @@ import ij.*;
 import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
-import ij.plugin.frame.RoiManager;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
 
 public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListener, KeyListener, ImageListener {
 
-    float pickX, pickY, pickR; //
+    float pickX, pickY;
+    int pickR; //
+    private static int pickRMax = 16; // picked radius should not go more than this value
+    private static int pickRMin = 2; // picked radius should not go more than this value
+
     boolean begunPicking;
     ImagePlus inImg;
     ImageWindow imWind;
@@ -29,6 +31,11 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 
     private static final int  changeR = 2;
     private static final Color annotColor = new Color(255, 255, 0, 60);
+
+    float[][] profiles; // getProfilePlots()
+    float[] profilesZ;
+    byte[][] patches; // getPatches()
+
 
     private static final char EXPORT_COMMAND = 'e';
     private static final char DELETE_COMMAND = 'd';
@@ -71,13 +78,22 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
             return;
         }
 
-        pickR = 64;//Math.round(Math.min(inImg.getWidth(), inImg.getHeight()) / 35f); // initial size of the circle
+        pickR = pickRMax;//Math.round(Math.min(inImg.getWidth(), inImg.getHeight()) / 35f); // initial size of the circle
         pickX = 0;
         pickY = 0;
 
         imDir = inImg.getOriginalFileInfo().directory;
         imName = inImg.getShortTitle();
 
+        //
+        profiles = new float[(int)Math.pow(2*pickRMax+1, 2)][inImg.getStack().getSize()];
+        profilesZ = new float[inImg.getStack().getSize()];
+        patches = new byte[inImg.getStack().getSize()][];
+
+        for (int i = 0; i < inImg.getStack().getSize(); i++) {
+            profilesZ[i] = i;
+        }
+        
         // look for the annotations and initialize Overlays with the annotations encountered in ./ANNNOT_DIR_NAME/
         overlayAnnot = new Overlay();
 
@@ -120,7 +136,6 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
         imWind.addKeyListener(this);
         ImagePlus.addImageListener(this);
 
-        IJ.showStatus("loaded " + imName);
         IJ.setTool("hand");
 
 
@@ -128,7 +143,6 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 
     private void updateCircle() {
 
-        // update the pick circle
         OvalRoi circAdd = new OvalRoi(pickX-pickR+.0f, pickY-pickR+.0f, 2*pickR, 2*pickR);
         circAdd.setStrokeColor(Color.RED);
         circAdd.setStrokeWidth(1);
@@ -243,13 +257,13 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
     public void keyTyped(KeyEvent e) {
 
         if (e.getKeyChar() == INCREASE_CIRCLE_RADIUS) {
-            pickR += (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
-            IJ.showStatus("R = " + pickR + " R-=" + changeR);
+            pickR += changeR;
+            pickR = (pickR>pickRMax)? pickRMax : pickR;
         }
 
         if (e.getKeyChar() == DECREASE_CIRCLE_RADIUS) {
-            pickR -= (pickR < Math.min(inImg.getWidth(), inImg.getHeight()))? changeR : 0 ;
-            IJ.showStatus("R = " + pickR + " R+=" + changeR);
+            pickR -= changeR;
+            pickR = (pickR>0)? pickR : pickRMin;
         }
 
         if (e.getKeyChar()=='+') {
@@ -292,66 +306,70 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 
 //        pickX = 	imCanv.offScreenX(e.getX());
 //        pickY = 	imCanv.offScreenY(e.getY());
-
 //        imCanv.getImage().updateAndDraw();
 
-        inspectProfileStack = getProfile((int)Math.round(pickX), (int)Math.round(pickY));
-        inspectProfileImage.setStack("Colony Intensity Profile", inspectProfileStack);
-        if (inspectProfileIsFirst) {
-            inspectProfileImage.show();
-            inspectProfileImage.getWindow().setLocation(upperLeftX, upperLeftY);
-            inspectProfileIsFirst = false;
-        }
+        inspectProfileStack = getProfilePlots((int)Math.round(pickX), (int)Math.round(pickY), (int)Math.round(pickR));
 
-        inspectProfileImage.updateAndDraw();
+        if (inspectProfileStack != null) {
+
+            inspectProfileImage.setStack("Colony Intensity Profile", inspectProfileStack);
+
+            if (inspectProfileIsFirst) {
+                inspectProfileImage.show();
+                inspectProfileImage.getWindow().setLocation(upperLeftX, upperLeftY);
+                inspectProfileIsFirst = false;
+            }
+
+            inspectProfileImage.updateAndDraw();
+
+        }
 
         IJ.setTool("hand");
 
     }
 
-    public ImageStack getProfile(int atX, int atY, int atR){
+    public float[] getPatchArrays() {
 
-        int idx = atY * inImg.getWidth() + atX; // xy2i[atX][atY];
+    }
 
-//        System.out.println("x=" + atX + " y=" + atY + " i=" + idx);
-//        System.out.println("size=" + inImg.getStack().getSize() + " ");
+    public ImageStack getProfilePlots(int atX, int atY, int atR){
 
-        float[] f = new float[inImg.getStack().getSize()];
-        float[] f1 = new float[inImg.getStack().getSize()];
-        float[] fx = new float[inImg.getStack().getSize()];
+        if (atX-atR >= 0 && atX+atR < inImg.getWidth()) {
+            if (atY-atR >= 0 && atY+atR < inImg.getHeight()) {
 
-        for (int i=0; i < inImg.getStack().getSize(); i++) {
-            fx[i] = i;// (i / (float) len) * 360; // abscissa in degs
-            byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
-            f[i] = aa[idx] & 0xff;// ((prof2[idx][i] & 0xffff) / 65535f) * 255f;
-            f1[i] = f[i] * 1.5f;
+                    Plot p = null;
+
+                    int profileIdx = 0;
+                    for (int dX = -atR; dX <= atR; dX++) {
+                        for (int dY = -atR; dY <= atR; dY++) {
+                            for (int i=0; i < inImg.getStack().getSize(); i++) {
+                                byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
+                                int idx = (atY+dY) * inImg.getWidth() + (atX+dX); // xy2i[atX][atY];
+                                profiles[profileIdx][i] = aa[idx] & 0xff;
+                            }
+
+                            if (profileIdx==0) {
+                                p = new Plot("", "h", "I", profilesZ, profiles[profileIdx]);
+                            }
+                            else {
+                                p.addPoints(profilesZ, profiles[profileIdx], Plot.LINE);
+                            }
+
+                            profileIdx++;
+                        }
+                    }
+
+                    ImageStack isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
+
+                    isOut.addSlice(p.getProcessor());
+
+                    return isOut;
+
+
+            }
         }
 
-        Plot p = new Plot("", "", "", fx, f);
-
-        p.addPoints(fx, f1, Plot.LINE);
-        ImageStack isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
-
-        isOut.addSlice(p.getProcessor());
-
-        /*
-        if (idx != -1) {
-            int len = prof2[0].length;
-            Plot p = new Plot("profile at ("+atX+","+atY+")", "", "filtered", fx, f);
-            p.setLineWidth(2);
-            is_out.addSlice(p.getProcessor());
-        }
-        else {
-
-            float[] fx = new float[sph2d.getProfileLength()];
-            for (int i=0; i<fx.length; i++) fx[i] = ((i/(float)fx.length)*360);
-            Plot p = new Plot("", "", "", fx, new float[fx.length]);
-            is_out.addSlice(p.getProcessor());
-
-        }
-        */
-
-        return isOut;
+        return null;
 
     }
 
@@ -378,7 +396,7 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 //        pickR =
 
         updateCircle();
-        mouseClicked(e);
+//        mouseClicked(e);
 
     }
 
