@@ -4,6 +4,7 @@ import ij.*;
 import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import ij.process.ByteProcessor;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -24,8 +25,13 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
     Overlay overlayAnnot;
 
     ImagePlus inspectProfileImage = new ImagePlus();
-    ImageStack inspectProfileStack = null;// new ImageStack();
+    ImageStack inspectProfileStack = null;
     boolean inspectProfileIsFirst = true;
+
+    ImagePlus inspectPatchImage = new ImagePlus();
+    ImageStack inspectPatchStack = null;
+    boolean inspectPatchIsFirst = true;
+
     int upperLeftX = 20;
     int upperLeftY = 20;
 
@@ -308,7 +314,7 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 //        pickY = 	imCanv.offScreenY(e.getY());
 //        imCanv.getImage().updateAndDraw();
 
-        inspectProfileStack = getProfilePlots((int)Math.round(pickX), (int)Math.round(pickY), (int)Math.round(pickR));
+        inspectProfileStack = getProfilePlots(Math.round(pickX), Math.round(pickY), Math.round(pickR));
 
         if (inspectProfileStack != null) {
 
@@ -324,49 +330,88 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 
         }
 
+        inspectPatchStack = getPatchArrays(Math.round(pickX), Math.round(pickY), Math.round(pickR));
+
+        if (inspectPatchStack != null) {
+
+            inspectPatchImage.setStack("Colony Patch", inspectPatchStack);
+
+            if (inspectPatchIsFirst) {
+                inspectPatchImage.show();
+                inspectPatchImage.getWindow().setLocation(upperLeftX, upperLeftY+200);
+                inspectPatchIsFirst = false;
+            }
+
+            inspectPatchImage.updateAndDraw();
+            inspectPatchImage.getCanvas().zoomIn(0, 0);
+
+        }
+
         IJ.setTool("hand");
 
     }
 
-    public float[] getPatchArrays() {
+    public ImageStack getPatchArrays(int atX, int atY, int atR) {
+        if (atX-atR >= 0 && atX+atR < inImg.getWidth() && atY-atR >= 0 && atY+atR < inImg.getHeight()) {
+
+            ImageStack isOut = new ImageStack((2*atR+1), (2*atR+1));
+
+            for (int i=0; i < inImg.getStack().getSize(); i++) {
+                byte[] layer = new byte[(2*atR+1)*(2*atR+1)];
+                int layIdx = 0;
+                for (int dX = -atR; dX <= atR; dX++) {
+                    for (int dY = -atR; dY <= atR; dY++) {
+                        byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
+                        int idx = (atY+dY) * inImg.getWidth() + (atX+dX);
+                        layer[layIdx] = aa[idx];// & 0xff;
+                        layIdx++;
+                    }
+                }
+
+                isOut.addSlice("t="+IJ.d2s(i,0), new ByteProcessor((2*atR+1), (2*atR+1), layer)); // p.getProcessor()
+
+            }
+
+            return isOut;
+        }
+
+        return null;
 
     }
 
     public ImageStack getProfilePlots(int atX, int atY, int atR){
 
-        if (atX-atR >= 0 && atX+atR < inImg.getWidth()) {
-            if (atY-atR >= 0 && atY+atR < inImg.getHeight()) {
+        if (atX-atR >= 0 && atX+atR < inImg.getWidth() && atY-atR >= 0 && atY+atR < inImg.getHeight()) {
 
-                    Plot p = null;
+            Plot p = null;
 
-                    int profileIdx = 0;
-                    for (int dX = -atR; dX <= atR; dX++) {
-                        for (int dY = -atR; dY <= atR; dY++) {
-                            for (int i=0; i < inImg.getStack().getSize(); i++) {
-                                byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
-                                int idx = (atY+dY) * inImg.getWidth() + (atX+dX); // xy2i[atX][atY];
-                                profiles[profileIdx][i] = aa[idx] & 0xff;
-                            }
+            int profileIdx = 0;
 
-                            if (profileIdx==0) {
-                                p = new Plot("", "h", "I", profilesZ, profiles[profileIdx]);
-                            }
+            for (int dX = -atR; dX <= atR; dX++) {
+                for (int dY = -atR; dY <= atR; dY++) {
+
+                    for (int i=0; i < inImg.getStack().getSize(); i++) {
+                        byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
+                        int idx = (atY+dY) * inImg.getWidth() + (atX+dX);
+                        profiles[profileIdx][i] = aa[idx] & 0xff;
+                    }
+
+
+                    if (profileIdx==0) {
+                        p = new Plot("", "h", "I", profilesZ, profiles[profileIdx]);
+                    }
                             else {
                                 p.addPoints(profilesZ, profiles[profileIdx], Plot.LINE);
                             }
 
                             profileIdx++;
-                        }
-                    }
-
-                    ImageStack isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
-
-                    isOut.addSlice(p.getProcessor());
-
-                    return isOut;
-
-
+                }
             }
+
+            ImageStack isOut = new ImageStack(p.getProcessor().getWidth(), p.getProcessor().getHeight());
+            isOut.addSlice(p.getProcessor());
+            return isOut;
+
         }
 
         return null;
