@@ -6,9 +6,12 @@ import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.gui.Overlay;
 import ij.gui.PointRoi;
+import ij.gui.Roi;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import ij.process.FloatProcessor;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.Random;
@@ -93,22 +96,24 @@ public class PatchExtractor implements PlugIn {
 
         for (File annotImgPath : files) {
 
-            System.out.println(annotImgPath.getAbsolutePath());
-
-
 
             // read image
             ImagePlus annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
-            if (annotImg.getType() == ImagePlus.GRAY8) {
+            if (annotImg.getType() == ImagePlus.GRAY8 && Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF")) {
+                // if read annot image is 8bit and .tif
 
-                // if 8bit and .tif consider it
-                // check extension too
-                // smooth
-                IJ.run(annotImg, "Gaussian Blur...", "sigma="+gaussBlur);
+                System.out.println(annotImgPath.getAbsolutePath());
 
+                // compute summed area table
                 byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
+                int[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
+                int[] sumOverRec = computeSumOverRect(annotIntegralImg);
 
-                System.out.println("annotImgPixels.length="+annotImgPixels.length);
+                new ImagePlus("sumOverRec", new FloatProcessor(annotImg.getWidth(), annotImg.getWidth(), sumOverRec)).show();
+
+//                IJ.run(annotImg, "Gaussian Blur...", "sigma="+gaussBlur);
+
+                System.out.println("computed integral image");
 
                 float annotFuzzyMin = Float.POSITIVE_INFINITY, annotFuzzyMax = Float.NEGATIVE_INFINITY;
                 for (int i = 0; i < annotImgPixels.length; i++) {
@@ -120,8 +125,8 @@ public class PatchExtractor implements PlugIn {
                     }
                 }
 
-                System.out.println("annotFuzzyMin="+annotFuzzyMin);
-                System.out.println("annotFuzzyMax="+annotFuzzyMax);
+//                System.out.println("annotFuzzyMin="+annotFuzzyMin);
+//                System.out.println("annotFuzzyMax="+annotFuzzyMax);
 
                 if (annotFuzzyMax - annotFuzzyMin > Float.MIN_VALUE) {
 
@@ -141,6 +146,8 @@ public class PatchExtractor implements PlugIn {
                     for (int i = 0; i < smp.length; i++) {
 //                        System.out.println(smp[i] + " -- " + smp[i]%annotImg.getWidth() + " | " + smp[i]/annotImg.getWidth() );
                         PointRoi p = new PointRoi(smp[i]%annotImg.getWidth(), smp[i]/annotImg.getWidth());
+                        p.setFillColor(Color.RED);
+                        p.setPointType(Roi.OVAL);
 //                        System.out.println(p.getXBase() + " " + p.getYBase());
                         ov.add(p);
                     }
@@ -151,39 +158,38 @@ public class PatchExtractor implements PlugIn {
 
                     System.out.println("OK");
 
-
                 }
-
-
-
-
-
-
-
-
-
             }
-
-
-
-
-
-
-
-
             // sample positives
 
             // sample negatives with the inverted image
 
+        }
+    }
 
+    private int[] computeIntegralImage(byte[] inputImageArray, int inputImageWidth, int inputImageHeight) {
 
+        int[] integralImg = new int[inputImageArray.length];
+
+        int iCurr, iUp, iLeft, iUpLeft;
+
+        for (int x = 0; x < inputImageWidth; x++) {
+            for (int y = 0; y < inputImageHeight; y++) {
+                iCurr = y * inputImageWidth + x; // i(x,y)
+                iUp = wrap(y-1, 0, inputImageHeight-1) * inputImageWidth + x; // I(x,y-1)
+                iLeft = y * inputImageWidth + wrap(x-1, 0, inputImageWidth-1); // I(x-1,y)
+                iUpLeft = wrap(y-1, 0, inputImageHeight-1) * inputImageWidth + wrap(x-1, 0, inputImageWidth-1); // I(x-1,y-1)
+                integralImg[iCurr] = (inputImageArray[iCurr] & 0xff) + integralImg[iUp] + integralImg[iLeft] - integralImg[iUpLeft];
+            }
         }
 
-
-
+        return integralImg;
     }
 
 
+    private static int wrap(int i, int iMin, int iMax){
+        return ((i<iMin)?iMin:( (i>iMax)?iMax:i ));
+    }
 
     private int[] sampleI(int nsamples, float[] csw) { // , int[][] tosample
 
