@@ -2,16 +2,16 @@ package com.braincadet.bacannot;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.Prefs;
-import ij.gui.GenericDialog;
-import ij.gui.Overlay;
-import ij.gui.PointRoi;
-import ij.gui.Roi;
+import ij.gui.*;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
+import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
 import java.awt.*;
+import java.awt.geom.Arc2D;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.Random;
@@ -89,13 +89,9 @@ public class PatchExtractor implements PlugIn {
             }
         }
 
-
-
-
         int countSamples = 1;
 
         for (File annotImgPath : files) {
-
 
             // read image
             ImagePlus annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
@@ -104,88 +100,170 @@ public class PatchExtractor implements PlugIn {
 
                 System.out.println(annotImgPath.getAbsolutePath());
 
-                // compute summed area table
                 byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
-                int[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
-                int[] sumOverRec = computeSumOverRect(annotIntegralImg);
+                float[] annotImgRange = getMinMax(annotImgPixels);
 
-                new ImagePlus("sumOverRec", new FloatProcessor(annotImg.getWidth(), annotImg.getWidth(), sumOverRec)).show();
+                if (annotImgRange[1] - annotImgRange[0] > Float.MIN_VALUE) {
 
-//                IJ.run(annotImg, "Gaussian Blur...", "sigma="+gaussBlur);
+                    // compute summed area table
+                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
+                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
 
-                System.out.println("computed integral image");
 
-                float annotFuzzyMin = Float.POSITIVE_INFINITY, annotFuzzyMax = Float.NEGATIVE_INFINITY;
-                for (int i = 0; i < annotImgPixels.length; i++) {
-                    if ((annotImgPixels[i] & 0xff) < annotFuzzyMin) {
-                        annotFuzzyMin = annotImgPixels[i] & 0xff;
-                    }
-                    if ((annotImgPixels[i] & 0xff) > annotFuzzyMax) {
-                        annotFuzzyMax = annotImgPixels[i] & 0xff;
-                    }
-                }
-
-//                System.out.println("annotFuzzyMin="+annotFuzzyMin);
-//                System.out.println("annotFuzzyMax="+annotFuzzyMax);
-
-                if (annotFuzzyMax - annotFuzzyMin > Float.MIN_VALUE) {
+                    // min-max for sumOverRec
+                    float[] overlapImgRange = getMinMax(overlapImg);
 
                     //cws compute
-                    float[] annotFuzzyCws = new float[annotImgPixels.length];
+                    float[] cws = new float[overlapImg.length];
 
-                    for (int j = 0; j < annotFuzzyCws.length; j++) {
-                        annotFuzzyCws[j] = ((annotImgPixels[j]&0xff)-annotFuzzyMin)/(annotFuzzyMax-annotFuzzyMin); // min-max normalize
-                        annotFuzzyCws[j] = annotFuzzyCws[j] + ((j==0)? 0 : annotFuzzyCws[j-1]);
+                    for (int j = 0; j < cws.length; j++) {
+                        cws[j] = (float) Math.pow(overlapImg[j], 5) + ((j==0)? 0 : cws[j-1]);
                     }
 
-                    System.out.println("annotFuzzyCws.top()="+annotFuzzyCws[annotFuzzyCws.length-1]);
-
-                    int[] smp = sampleI(N, annotFuzzyCws);
+                    int[] smp = sampleI(N, cws);
 
                     Overlay ov = new Overlay();
+
                     for (int i = 0; i < smp.length; i++) {
-//                        System.out.println(smp[i] + " -- " + smp[i]%annotImg.getWidth() + " | " + smp[i]/annotImg.getWidth() );
-                        PointRoi p = new PointRoi(smp[i]%annotImg.getWidth(), smp[i]/annotImg.getWidth());
-                        p.setFillColor(Color.RED);
-                        p.setPointType(Roi.OVAL);
-//                        System.out.println(p.getXBase() + " " + p.getYBase());
+
+                        OvalRoi p = new OvalRoi(smp[i]%annotImg.getWidth()+.5f-(R/2f), smp[i]/annotImg.getWidth()+.5f-(R/2f), R, R);
+
+                        p.setFillColor(new Color(1f,0f,0f,0.1f));
+
+                        PointRoi pp = new PointRoi(smp[i]%annotImg.getWidth()+.5f, smp[i]/annotImg.getWidth()+.5f);
+
                         ov.add(p);
+                        ov.add(pp);
                     }
 
                     annotImg.setOverlay(ov);
-
                     annotImg.show();
 
-                    System.out.println("OK");
+                    ImagePlus overlapImgPlus = new ImagePlus("sumOver d2=" +IJ.d2s(R,0), new FloatProcessor(annotImg.getWidth(), annotImg.getHeight(), overlapImg));//.show();
+                    overlapImgPlus.setOverlay(ov);
+                    overlapImgPlus.show();
 
                 }
+
+//                float annotFuzzyMin = Float.POSITIVE_INFINITY, annotFuzzyMax = Float.NEGATIVE_INFINITY;
+//                for (int i = 0; i < annotImgPixels.length; i++) {
+//                    if ((annotImgPixels[i] & 0xff) < annotFuzzyMin) {
+//                        annotFuzzyMin = annotImgPixels[i] & 0xff;
+//                    }
+//                    if ((annotImgPixels[i] & 0xff) > annotFuzzyMax) {
+//                        annotFuzzyMax = annotImgPixels[i] & 0xff;
+//                    }
+//                }
+
             }
-            // sample positives
 
             // sample negatives with the inverted image
 
         }
     }
 
-    private int[] computeIntegralImage(byte[] inputImageArray, int inputImageWidth, int inputImageHeight) {
+    private static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
 
-        int[] integralImg = new int[inputImageArray.length];
+        if (atX-atR >= 0 && atX+atR < inImg.getWidth() && atY-atR >= 0 && atY+atR < inImg.getHeight()) {
 
-        int iCurr, iUp, iLeft, iUpLeft;
+            ImageStack isOut = new ImageStack((2*atR+1), (2*atR+1));
 
-        for (int x = 0; x < inputImageWidth; x++) {
-            for (int y = 0; y < inputImageHeight; y++) {
-                iCurr = y * inputImageWidth + x; // i(x,y)
-                iUp = wrap(y-1, 0, inputImageHeight-1) * inputImageWidth + x; // I(x,y-1)
-                iLeft = y * inputImageWidth + wrap(x-1, 0, inputImageWidth-1); // I(x-1,y)
-                iUpLeft = wrap(y-1, 0, inputImageHeight-1) * inputImageWidth + wrap(x-1, 0, inputImageWidth-1); // I(x-1,y-1)
-                integralImg[iCurr] = (inputImageArray[iCurr] & 0xff) + integralImg[iUp] + integralImg[iLeft] - integralImg[iUpLeft];
+            for (int i=0; i < inImg.getStack().getSize(); i++) {
+                byte[] layer = new byte[(2*atR+1)*(2*atR+1)];
+                int j = 0;
+                for (int dX = -atR; dX <= atR; dX++) {
+                    for (int dY = -atR; dY <= atR; dY++) {
+                        byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
+                        layer[j] = aa[(atY+dY) * inImg.getWidth() + (atX+dX)];
+                        j++;
+                    }
+                }
+
+                isOut.addSlice(inImg.getTitle() + ",x=" + IJ.d2s(atX, 0) + ",y=" + IJ.d2s(atY, 0) + ",R=" + IJ.d2s(atR,0),
+                        new ByteProcessor((2*atR+1), (2*atR+1), layer));
+
+            }
+
+            return isOut;
+        }
+
+        return null;
+
+    }
+
+    private float[] getMinMax(byte[] I){
+
+        float[] range = new float[]{Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+
+        for (int i = 0; i < I.length; i++) {
+            if ((I[i] & 0xff) < range[0]) {
+                range[0] = I[i] & 0xff;
+            }
+            if ((I[i] & 0xff) > range[1]) {
+                range[1] = I[i] & 0xff;
             }
         }
 
-        return integralImg;
+        return range;
+
     }
 
+    private float[] getMinMax(float[] I) {
+
+        float[] range = new float[]{Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+
+        for (int i = 0; i < I.length; i++) {
+            if (I[i] < range[0]) {
+                range[0] = I[i];
+            }
+            if (I[i] > range[1]) {
+                range[1] = I[i];
+            }
+        }
+
+        return range;
+    }
+
+    private float[] computeSumOverRect(float[] I, int W, int H, int d2) {
+
+        float[] Iout = new float[I.length];
+
+        int iCurr, i00, i10, i01, i11;
+
+        for (int x = 0; x < W; x++) {
+            for (int y = 0; y < H; y++) {
+                iCurr = y * W + x; // i(x,y)
+                i00 = wrap(y-d2, 0, H-1) * W + wrap(x-d2, 0, W-1);
+                i10 = wrap(y-d2, 0, H-1) * W + wrap(x+d2, 0, W-1);
+                i01 = wrap(y+d2, 0, H-1) * W + wrap(x-d2, 0, W-1);
+                i11 = wrap(y+d2, 0, H-1) * W + wrap(x+d2, 0, W-1);
+                Iout[iCurr] = I[i11] + I[i00] - I[i10] - I[i01];
+                Iout[iCurr] /= Math.pow(2*d2+1, 2);
+            }
+        }
+
+        return Iout;
+
+    }
+
+    private float[] computeIntegralImage(byte[] I, int W, int H) {
+
+        float[] Iout = new float[I.length];
+
+        int iCurr, iUp, iLeft, iUpLeft;
+
+        for (int x = 0; x < W; x++) {
+            for (int y = 0; y < H; y++) {
+                iCurr = y * W + x; // i(x,y)
+                iUp = wrap(y-1, 0, H-1) * W + x; // I(x,y-1)
+                iLeft = y * W + wrap(x-1, 0, W-1); // I(x-1,y)
+                iUpLeft = wrap(y-1, 0, H-1) * W + wrap(x-1, 0, W-1); // I(x-1,y-1)
+                Iout[iCurr] = ( (I[iCurr] & 0xff)/255f ) + Iout[iUp] + Iout[iLeft] - Iout[iUpLeft];
+            }
+        }
+
+        return Iout;
+    }
 
     private static int wrap(int i, int iMin, int iMax){
         return ((i<iMin)?iMin:( (i>iMax)?iMax:i ));
@@ -224,31 +302,4 @@ public class PatchExtractor implements PlugIn {
         return out;
     }
 
-    // sampleXY
-
 }
-
-
-
-
-
-
-
-
-//    private ArrayList<Integer> importsamp(ArrayList<Double> lcws, int n) {
-//        // systematic resampling, Beyond Kalman Filtering, Ristic et al.
-//        double totalmass = lcws.get(lcws.size() - 1);
-//        double u1 = (totalmass / (float) n) * new Random().nextDouble();
-//
-//        ArrayList<Integer> out = new ArrayList<Integer>(n);
-//        out.clear();
-//        int i = 0;
-//        for (int j = 0; j < n; j++) {
-//            double uj = u1 + j * (totalmass / (float) n);
-//            while (uj > lcws.get(i)) i++;
-//            out.add(i);
-//        }
-//
-//        return out;
-//
-//    }

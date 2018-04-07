@@ -36,6 +36,8 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
     private static final char DECREASE_CIRCLE_RADIUS = 'j';
     private static final String ANNNOT_DIR_NAME = "annot";
 
+    private static final float ANNOTATOR_OUTLINE_WIDTH = 4f;
+
     @Override
     public void run(String s) {
 
@@ -123,7 +125,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         // update the pick circle
         OvalRoi circAdd = new OvalRoi(pickX-pickR+.0f, pickY-pickR+.0f, 2*pickR, 2*pickR);
         circAdd.setStrokeColor(Color.RED);
-        circAdd.setStrokeWidth(1);
+        circAdd.setStrokeWidth(ANNOTATOR_OUTLINE_WIDTH);
 
         if (!begunPicking) {
             begunPicking = true;

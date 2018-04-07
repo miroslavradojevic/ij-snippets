@@ -343,7 +343,7 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
             }
 
             inspectPatchImage.updateAndDraw();
-            inspectPatchImage.getCanvas().zoomIn(0, 0);
+//            inspectPatchImage.getCanvas().zoomIn(0, 0);
 
         }
 
@@ -351,7 +351,37 @@ public class ColonyInspector implements PlugIn, MouseListener, MouseMotionListen
 
     }
 
+    public static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
+
+        if (atX-atR >= 0 && atX+atR < inImg.getWidth() && atY-atR >= 0 && atY+atR < inImg.getHeight()) {
+
+            ImageStack isOut = new ImageStack((2*atR+1), (2*atR+1));
+
+            for (int i=0; i < inImg.getStack().getSize(); i++) {
+                byte[] layer = new byte[(2*atR+1)*(2*atR+1)];
+                int j = 0;
+                for (int dX = -atR; dX <= atR; dX++) {
+                    for (int dY = -atR; dY <= atR; dY++) {
+                        byte[] aa = (byte[])inImg.getStack().getProcessor(i+1).getPixels();
+                        layer[j] = aa[(atY+dY) * inImg.getWidth() + (atX+dX)];
+                        j++;
+                    }
+                }
+
+                isOut.addSlice(inImg.getTitle() + ",x=" + IJ.d2s(atX, 0) + ",y=" + IJ.d2s(atY, 0) + ",R=" + IJ.d2s(atR,0),
+                        new ByteProcessor((2*atR+1), (2*atR+1), layer));
+
+            }
+
+            return isOut;
+        }
+
+        return null;
+
+    }
+
     public ImageStack getPatchArrays(int atX, int atY, int atR) {
+
         if (atX-atR >= 0 && atX+atR < inImg.getWidth() && atY-atR >= 0 && atY+atR < inImg.getHeight()) {
 
             ImageStack isOut = new ImageStack((2*atR+1), (2*atR+1));
