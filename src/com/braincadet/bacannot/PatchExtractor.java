@@ -20,7 +20,7 @@ public class PatchExtractor implements PlugIn {
 
     String annotDir;
     int R = 8;
-    int N = 10;
+    int N = 500;
     int gaussBlur = 12;
 
     private  static final String PATCH_DIR_NAME = "patch";
@@ -74,12 +74,13 @@ public class PatchExtractor implements PlugIn {
             return;
         }
 
-        System.out.println("found " + files.length + "annotations");
+        System.out.println("found " + files.length + " annotations");
 
 
         File directory = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + File.separator);
 
         if (! directory.exists()){
+            System.out.println("Created patch directory.");
             directory.mkdir(); // use directory.mkdirs(); for subdirs
         }
         else {
@@ -93,6 +94,8 @@ public class PatchExtractor implements PlugIn {
 
         for (File annotImgPath : files) {
 
+            System.out.println("\n" + annotImgPath.getAbsolutePath());
+
             // read image
             ImagePlus annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
             if (annotImg.getType() == ImagePlus.GRAY8 && Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF")) {
@@ -100,24 +103,34 @@ public class PatchExtractor implements PlugIn {
 
                 System.out.println(annotImgPath.getAbsolutePath());
 
+                System.out.println("Compute distance map...");
+                IJ.run(annotImg, "Distance Map", "");
+
+                System.out.println("");
+
+//                annotImg.show();
+
                 byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
                 float[] annotImgRange = getMinMax(annotImgPixels);
+                System.out.println("Range = [ " + annotImgRange[0] + " / " + annotImgRange[1] + " ]");
+
+//                if (true) continue;
 
                 if (annotImgRange[1] - annotImgRange[0] > Float.MIN_VALUE) {
 
                     // compute summed area table
-                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
-                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
+//                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
+//                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
 
 
                     // min-max for sumOverRec
-                    float[] overlapImgRange = getMinMax(overlapImg);
+//                    float[] overlapImgRange = getMinMax(overlapImg);
 
                     //cws compute
-                    float[] cws = new float[overlapImg.length];
+                    float[] cws = new float[annotImgPixels.length];
 
                     for (int j = 0; j < cws.length; j++) {
-                        cws[j] = (float) Math.pow(overlapImg[j], 5) + ((j==0)? 0 : cws[j-1]);
+                        cws[j] = (float) Math.pow(annotImgPixels[j] & 0xff, 2) + ((j==0)? 0 : cws[j-1]);
                     }
 
                     int[] smp = sampleI(N, cws);
@@ -127,19 +140,17 @@ public class PatchExtractor implements PlugIn {
                     for (int i = 0; i < smp.length; i++) {
 
                         OvalRoi p = new OvalRoi(smp[i]%annotImg.getWidth()+.5f-(R/2f), smp[i]/annotImg.getWidth()+.5f-(R/2f), R, R);
-
                         p.setFillColor(new Color(1f,0f,0f,0.1f));
-
-                        PointRoi pp = new PointRoi(smp[i]%annotImg.getWidth()+.5f, smp[i]/annotImg.getWidth()+.5f);
-
                         ov.add(p);
-                        ov.add(pp);
+
+//                        PointRoi pp = new PointRoi(smp[i]%annotImg.getWidth()+.5f, smp[i]/annotImg.getWidth()+.5f);
+//                        ov.add(pp);
                     }
 
                     annotImg.setOverlay(ov);
                     annotImg.show();
 
-                    ImagePlus overlapImgPlus = new ImagePlus("sumOver d2=" +IJ.d2s(R,0), new FloatProcessor(annotImg.getWidth(), annotImg.getHeight(), overlapImg));//.show();
+                    ImagePlus overlapImgPlus = new ImagePlus(annotImgPath.getAbsolutePath()); //new ImagePlus("sumOver d2=" +IJ.d2s(R,0), new ByteProcessor(annotImg.getWidth(), annotImg.getHeight(), annotImgPixels));
                     overlapImgPlus.setOverlay(ov);
                     overlapImgPlus.show();
 
