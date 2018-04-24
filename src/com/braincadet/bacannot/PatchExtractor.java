@@ -108,13 +108,11 @@ public class PatchExtractor implements PlugIn {
 
                 System.out.println("");
 
-//                annotImg.show();
+                annotImg.show();
 
                 byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
                 float[] annotImgRange = getMinMax(annotImgPixels);
                 System.out.println("Range = [ " + annotImgRange[0] + " / " + annotImgRange[1] + " ]");
-
-//                if (true) continue;
 
                 if (annotImgRange[1] - annotImgRange[0] > Float.MIN_VALUE) {
 
@@ -122,28 +120,41 @@ public class PatchExtractor implements PlugIn {
 //                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
 //                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
 
-
                     // min-max for sumOverRec
 //                    float[] overlapImgRange = getMinMax(overlapImg);
+                    //************************************************************
+                    // sample positives
 
                     //cws compute
                     float[] cws = new float[annotImgPixels.length];
+                    float weight;
+                    int x, y;
 
                     for (int j = 0; j < cws.length; j++) {
-                        cws[j] = (float) Math.pow(annotImgPixels[j] & 0xff, 2) + ((j==0)? 0 : cws[j-1]);
+                        x = j % annotImg.getWidth();
+                        y = j / annotImg.getWidth();
+                        weight = (margin(x, annotImg.getWidth(), R) && margin(y, annotImg.getHeight(), R))? (float) Math.pow(annotImgPixels[j] & 0xff, 2) : 0f;
+                        cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
 
-                    int[] smp = sampleI(N, cws);
+                    int[] smpPos = sampleI(N, cws); // sample positives
 
+                    //************************************************************
+                    // sample negatives
+
+                    // invert annotImg
+
+
+                    //************************************************************
                     Overlay ov = new Overlay();
 
-                    for (int i = 0; i < smp.length; i++) {
+                    for (int i = 0; i < smpPos.length; i++) {
 
-                        OvalRoi p = new OvalRoi(smp[i]%annotImg.getWidth()+.5f-(R/2f), smp[i]/annotImg.getWidth()+.5f-(R/2f), R, R);
+                        OvalRoi p = new OvalRoi(smpPos[i]%annotImg.getWidth()+.5f-(R/2f), smpPos[i]/annotImg.getWidth()+.5f-(R/2f), R, R);
                         p.setFillColor(new Color(1f,0f,0f,0.1f));
                         ov.add(p);
 
-//                        PointRoi pp = new PointRoi(smp[i]%annotImg.getWidth()+.5f, smp[i]/annotImg.getWidth()+.5f);
+//                        PointRoi pp = new PointRoi(smpPos[i]%annotImg.getWidth()+.5f, smpPos[i]/annotImg.getWidth()+.5f);
 //                        ov.add(pp);
                     }
 
@@ -153,6 +164,9 @@ public class PatchExtractor implements PlugIn {
                     ImagePlus overlapImgPlus = new ImagePlus(annotImgPath.getAbsolutePath()); //new ImagePlus("sumOver d2=" +IJ.d2s(R,0), new ByteProcessor(annotImg.getWidth(), annotImg.getHeight(), annotImgPixels));
                     overlapImgPlus.setOverlay(ov);
                     overlapImgPlus.show();
+                    //************************************************************
+
+                    //
 
                 }
 
@@ -171,6 +185,10 @@ public class PatchExtractor implements PlugIn {
             // sample negatives with the inverted image
 
         }
+    }
+
+    private static boolean margin(int x, int W, int marginVal) {
+        return (x>=marginVal && x<W-marginVal)? true : false ;
     }
 
     private static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
