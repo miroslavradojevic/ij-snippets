@@ -5,6 +5,7 @@ import ij.ImageListener;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.gui.*;
+import ij.io.FileInfo;
 import ij.io.FileSaver;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
@@ -141,7 +142,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     }
 
-    private void exportOverlayAnnot(boolean showResult) {
+    private void exportOverlayAnnot(boolean showResult, String originPath) {
 
         File directory = new File(imDir + File.separator + ANNNOT_DIR_NAME + File.separator);
 
@@ -152,7 +153,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         ImagePlus imOut = new ImagePlus(imName, new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
 
         RoiManager rm = new RoiManager();
-
+        System.out.println("debug!");
         for (int i = 0; i < overlayAnnot.size() - 1; i++) { // exclude the last one because it is the pointer circle
 
             int xPatch = overlayAnnot.get(i).getBounds().x;
@@ -176,9 +177,34 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             rm.addRoi(overlayAnnot.get(i));
         }
 
-        // save the annotated image
+//        imOut.getProperties().setProperty("originPath", originPath);
+//        System.out.println(imOut.getInfoProperty());//();
+
+//        how to save metadata: http://imagej.1557.x6.nabble.com/Push-Metadata-td4999917.html
+
+        System.out.println("File info BEFORE: " + imOut.getFileInfo().toString());
+        System.out.println("File info before: " + imOut.getFileInfo().info);
+
+        imOut.getInfoProperty();
+
+        FileInfo fi = imOut.getFileInfo();
+
+        fi.info = originPath;
+
+        System.out.println("File info AFTER: " + fi.toString());
+
+        imOut.setFileInfo(fi); // set the new properties!
+
+        System.out.println("File info after: " + imOut.getFileInfo().info);
+
+        // save the annotated image with the added property
         FileSaver fs = new FileSaver(imOut);
         fs.saveAsTiff(directory.getPath() + File.separator + imName + ".tif");
+
+        System.out.println("Saved " + directory.getPath() + File.separator + imName + ".tif");
+
+        ImagePlus debugIP = new ImagePlus(directory.getPath() + File.separator + imName + ".tif");
+        System.out.println("Info from the read file: " + debugIP.getFileInfo().info);
 
         rm.runCommand("Save", directory.getPath() + File.separator + imName + ".zip");
         rm.moveRoisToOverlay(imOut);
@@ -323,7 +349,22 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         }
 
         if (e.getKeyChar() == EXPORT_COMMAND) {
-            exportOverlayAnnot(true);
+
+            GenericDialog gd = new GenericDialog("Export");
+            gd.addMessage("Export annotations?");
+            gd.addStringField("origin", "pathToTheOriginStackExport", 80);
+            gd.showDialog();
+            if (gd.wasCanceled()) {
+                return;
+            }
+            else {
+                System.out.println("what was it? ");
+                String rr = gd.getNextString();
+                System.out.println("ok? " + rr);
+                exportOverlayAnnot(true, rr);
+//                exportOverlayAnnot(true);
+            }
+
         }
 
         if (e.getKeyChar() == DELETE_COMMAND) {
@@ -357,16 +398,15 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         if (closedImageName.equals((imputImageName))) {
 
-
-
             GenericDialog gd = new GenericDialog("Save");
             gd.addMessage("Export annotations before closing?");
+            gd.addStringField("origin", "pathToTheOriginStack", 80);
             gd.showDialog();
             if (gd.wasCanceled()) {
                 return;
             }
             else {
-                exportOverlayAnnot(true);
+                exportOverlayAnnot(true, gd.getNextString());
             }
 
             if (imWind!=null)

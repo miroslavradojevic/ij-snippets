@@ -5,6 +5,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.*;
+import ij.io.FileSaver;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
@@ -12,16 +13,15 @@ import ij.process.FloatProcessor;
 
 import java.awt.*;
 import java.awt.geom.Arc2D;
-import java.io.File;
-import java.io.FilenameFilter;
+import java.io.*;
 import java.util.Random;
 
 public class PatchExtractor implements PlugIn {
 
     String annotDir;
+    String srcStack;
     int R = 8;
     int N = 10;
-    int gaussBlur = 12;
 
     private  static final String PATCH_DIR_NAME = "patch";
 
@@ -29,13 +29,19 @@ public class PatchExtractor implements PlugIn {
     public void run(String s) {
 
         GenericDialog gd = new GenericDialog("Extract patches");
-        gd.addStringField("annotdir",     Prefs.get("com.braincadet.bacannot.annotdir", annotDir), 50);
-        gd.addNumericField("R",   Prefs.get("com.braincadet.bacannot.r", R), 0, 5, "");
-        gd.addNumericField("N",   Prefs.get("com.braincadet.bacannot.n", N), 0, 5, "");
+        gd.addStringField("annotdir", Prefs.get("com.braincadet.bacannot.annotdir", annotDir), 80);
+        gd.addStringField("srcstack", Prefs.get("com.braincadet.bacannot.srcstack", srcStack), 80);
+        gd.addNumericField("R", Prefs.get("com.braincadet.bacannot.r", R), 0, 5, "");
+        gd.addNumericField("N", Prefs.get("com.braincadet.bacannot.n", N), 0, 5, "");
         gd.showDialog();
+
         if (gd.wasCanceled()) return;
+
         annotDir = gd.getNextString().replace("\"", "");
         Prefs.set("com.braincadet.bacannot.annotdir", annotDir);
+
+        srcStack = gd.getNextString().replace("\"", "");
+        Prefs.set("com.braincadet.bacannot.srcstack", srcStack);
 
         R = (int) gd.getNextNumber();
         Prefs.set("com.braincadet.bacannot.r", R);
@@ -77,26 +83,40 @@ public class PatchExtractor implements PlugIn {
         System.out.println("found " + files.length + "annotations");
 
 
-        File directory = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + File.separator);
+        File outDir = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + File.separator);
 
-        if (! directory.exists()){
-            directory.mkdir(); // use directory.mkdirs(); for subdirs
+        if (! outDir.exists()){
+            outDir.mkdir();
         }
         else {
-            if (directory.listFiles().length > 0) {
-                System.out.println("Patch directory contains files.");
+            if (outDir.listFiles().length > 0) {
+                System.out.println("Abort: patch directory contains files.");
                 return;
             }
         }
 
-        int countSamples = 1;
+        int countSamples = 0;
 
         for (File annotImgPath : files) {
 
-            // read image
+            // read annotation image
             ImagePlus annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
+            String tt= annotImg.getProperties().getProperty("origin");
+
+            System.out.println("origin("+annotImgPath.getAbsolutePath()+") = "+tt);
+
+            // read image being sampled read from the annotation metadata
+            ImagePlus srcStackImg = new ImagePlus();
+
+
+            int W = annotImg.getWidth();
+            int H = annotImg.getHeight();
+
+            // this one is from the image stack path...
+            int L = annotImg.getStackSize();
+
+            // process if read annot image is 8bit and .tif
             if (annotImg.getType() == ImagePlus.GRAY8 && Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF")) {
-                // if read annot image is 8bit and .tif
 
                 System.out.println(annotImgPath.getAbsolutePath());
 
@@ -106,21 +126,32 @@ public class PatchExtractor implements PlugIn {
                 if (annotImgRange[1] - annotImgRange[0] > Float.MIN_VALUE) {
 
                     // compute summed area table
-                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
-                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
-
+                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, W, H);
+                    float[] overlapImg = computeSumOverRect(annotIntegralImg, W, H, R);
 
                     // min-max for sumOverRec
                     float[] overlapImgRange = getMinMax(overlapImg);
 
-                    //cws compute
+                    //cws compute using overlapImg[]
                     float[] cws = new float[overlapImg.length];
 
                     for (int j = 0; j < cws.length; j++) {
-                        cws[j] = (float) Math.pow(overlapImg[j], 5) + ((j==0)? 0 : cws[j-1]);
+
+                        // place zero margin of R
+                        boolean isInside =  (j % W >= R) && (j % W < W-R) && (j / W >= R) && (j / W < H-R);
+                        cws[j] = ((isInside)? (float) Math.pow(overlapImg[j], 3) : 0f) + ((j==0)? 0 : cws[j-1]);
+
                     }
 
+
+                    // sample POSITIVES locations
                     int[] smp = sampleI(N, cws);
+
+                    // sampled location class indexes
+                    int[] smpTag = new int[smp.length];
+                    for (int i = 0; i < smp.length; i++) {
+                        smpTag[i] = 1;
+                    }
 
                     Overlay ov = new Overlay();
 
@@ -143,6 +174,28 @@ public class PatchExtractor implements PlugIn {
                     overlapImgPlus.setOverlay(ov);
                     overlapImgPlus.show();
 
+                    String dd = outDir.getAbsolutePath();
+                    System.out.println(dd);
+
+                    // extract the patches at sampled locations
+                    countSamples = patchExtract(
+                            smp, smpTag, countSamples,
+                            annotImg.getWidth(), annotImg.getHeight(), annotImg.getStackSize(), R,
+                            annotImgPixels,
+                            annotImg.getShortTitle(),
+                            outDir
+                    );
+
+                    //
+                    System.out.println("nr samples = " + countSamples);
+
+                    // sample NEGATIVES locations using the inverted image
+                    //
+
+
+                }
+                else {
+                    System.out.println("no annotations found");
                 }
 
 //                float annotFuzzyMin = Float.POSITIVE_INFINITY, annotFuzzyMax = Float.NEGATIVE_INFINITY;
@@ -160,6 +213,60 @@ public class PatchExtractor implements PlugIn {
             // sample negatives with the inverted image
 
         }
+    }
+
+    private static int patchExtract(int[] idxList, int[] classIdx, int startCount,
+                                    int W, int H, int L, int R,
+                                    byte[] imgSampled,
+                                    String annotImgName,
+                                    File outDir) {
+
+        String outDirPath = outDir.getAbsolutePath()+File.separator+"patch.log";
+
+        int currPatchIdx = startCount;
+
+        System.out.println(outDirPath);
+
+        try(FileWriter fw = new FileWriter(outDirPath, true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw))
+        {
+
+            if (currPatchIdx == 0) {
+                out.println("#name,x,y,R,annot,tag");
+            }
+
+            for (int i = 0; i < idxList.length; i++) {
+
+                int x = idxList[i] % W;
+                int y = idxList[i] / W;
+                currPatchIdx++;
+
+                // compute the patch from the annotated image stack
+                String patchName = String.format("%015d.tif", currPatchIdx);
+                String outPatchPath = outDir.getAbsolutePath()+File.separator+patchName;
+
+                System.out.println(outPatchPath);
+
+//                ImagePlus patchImage = new ImagePlus(patchName, new ImageStack(2*R+1, 2*R+1));
+                ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2*R+1)*L, 2*R+1));
+//                FileSaver fs = new FileSaver(patchImage);
+
+                IJ.saveAs(patchImage, "Tiff", outPatchPath);
+
+                out.println(patchName + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
+
+            }
+
+        } catch (IOException e) {
+            System.out.println("File opening went wrong:");
+            System.out.println(e.getMessage());
+        }
+
+
+
+        return currPatchIdx;
+
     }
 
     private static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
@@ -271,7 +378,7 @@ public class PatchExtractor implements PlugIn {
 
     private int[] sampleI(int nsamples, float[] csw) { // , int[][] tosample
 
-        int[] out = new int[nsamples];//[tosample[0].length];
+        int[] out = new int[nsamples]; // [tosample[0].length];
 
         float totalmass = csw[csw.length - 1];
 
@@ -290,7 +397,7 @@ public class PatchExtractor implements PlugIn {
 
 //            System.out.println("out["+j+"]="+out[j]);
 
-            out[j] = i;//tosample[i];//[k];[k]
+            out[j] = i; // tosample[i];//[k];[k]
 
 //            for (int k = 0; k < tosample[i].length; k++) {
 //                out[j][k] = tosample[i][k];
