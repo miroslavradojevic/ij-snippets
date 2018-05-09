@@ -7,9 +7,11 @@ import ij.Prefs;
 import ij.gui.*;
 import ij.io.FileSaver;
 import ij.io.OpenDialog;
+import ij.plugin.ContrastEnhancer;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
+import javafx.fxml.FXMLLoader;
 
 import java.awt.*;
 import java.awt.geom.Arc2D;
@@ -19,14 +21,9 @@ import java.util.Random;
 public class PatchExtractor implements PlugIn {
 
     String annotDir;
-    String srcStack;
-    int R = 8;
-<<<<<<< HEAD
-    int N = 10;
-=======
-    int N = 500;
-    int gaussBlur = 12;
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
+//    String srcStack;
+    int R = 10; // size of the patch
+    int N = 100; // number of samples
 
     private  static final String PATCH_DIR_NAME = "patch";
 
@@ -35,7 +32,7 @@ public class PatchExtractor implements PlugIn {
 
         GenericDialog gd = new GenericDialog("Extract patches");
         gd.addStringField("annotdir", Prefs.get("com.braincadet.bacannot.annotdir", annotDir), 80);
-        gd.addStringField("srcstack", Prefs.get("com.braincadet.bacannot.srcstack", srcStack), 80);
+//        gd.addStringField("srcstack", Prefs.get("com.braincadet.bacannot.srcstack", srcStack), 80);
         gd.addNumericField("R", Prefs.get("com.braincadet.bacannot.r", R), 0, 5, "");
         gd.addNumericField("N", Prefs.get("com.braincadet.bacannot.n", N), 0, 5, "");
         gd.showDialog();
@@ -45,8 +42,8 @@ public class PatchExtractor implements PlugIn {
         annotDir = gd.getNextString().replace("\"", "");
         Prefs.set("com.braincadet.bacannot.annotdir", annotDir);
 
-        srcStack = gd.getNextString().replace("\"", "");
-        Prefs.set("com.braincadet.bacannot.srcstack", srcStack);
+//        srcStack = gd.getNextString().replace("\"", "");
+//        Prefs.set("com.braincadet.bacannot.srcstack", srcStack);
 
         R = (int) gd.getNextNumber();
         Prefs.set("com.braincadet.bacannot.r", R);
@@ -55,8 +52,6 @@ public class PatchExtractor implements PlugIn {
         Prefs.set("com.braincadet.bacannot.n", N);
 
         System.out.println("annotdir=" + annotDir);
-        System.out.println("R=" + R);
-        System.out.println("N=" + N);
 
         File fAnnotDir = new File(annotDir);
 
@@ -69,8 +64,6 @@ public class PatchExtractor implements PlugIn {
             System.out.println("Enetered annot path is not a directory.");
             return;
         }
-
-        System.out.println("parent = " + fAnnotDir.getParent());
 
         // read all available annotation images "*.tif"
         File [] files = fAnnotDir.listFiles(new FilenameFilter() {
@@ -90,206 +83,186 @@ public class PatchExtractor implements PlugIn {
 
         File outDir = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + File.separator);
 
-<<<<<<< HEAD
         if (! outDir.exists()){
-            outDir.mkdir();
-=======
-        if (! directory.exists()){
-            System.out.println("Created patch directory.");
-            directory.mkdir(); // use directory.mkdirs(); for subdirs
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
+            outDir.mkdir(); // use directory.mkdirs(); for subdirs
         }
         else {
             if (outDir.listFiles().length > 0) {
-                System.out.println("Abort: patch directory contains files.");
+                System.out.println("Abort:\tpatch directory contains files.");
                 return;
             }
         }
 
-        int countSamples = 0;
+        int countSamples = 0; // count computed training samples over the whole annot directory
 
         for (File annotImgPath : files) {
 
-<<<<<<< HEAD
-            // read annotation image
-=======
-            System.out.println("\n" + annotImgPath.getAbsolutePath());
+            System.out.println("\n" + annotImgPath.getAbsolutePath()); // read annotation image
 
             // read image
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
             ImagePlus annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
-            String tt= annotImg.getProperties().getProperty("origin");
-
-            System.out.println("origin("+annotImgPath.getAbsolutePath()+") = "+tt);
-
-            // read image being sampled read from the annotation metadata
-            ImagePlus srcStackImg = new ImagePlus();
-
-
             int W = annotImg.getWidth();
             int H = annotImg.getHeight();
 
-            // this one is from the image stack path...
-            int L = annotImg.getStackSize();
+            if (annotImg.getProperty("Info") == null) {
+                System.out.println("Could not find the origin, patch sampling cannot proceed.");
+                continue;
+            }
+
+            File fOrigin = new File((String)annotImg.getProperty("Info"));
+            if (fOrigin.exists() == false) {
+                System.out.println("Origin file does not exist."); // maybe check extension etc
+                continue;
+            }
+
+            // read image being sampled read from the annotation metadata
+            ImagePlus originStackImg = new ImagePlus(fOrigin.getAbsolutePath());
+            if (originStackImg == null) {
+                System.out.println("Origin file could not be read."); // maybe check extension etc
+                continue;
+            }
+            int L = originStackImg.getStackSize();
+            System.out.println("L = " + L);
 
             // process if read annot image is 8bit and .tif
-            if (annotImg.getType() == ImagePlus.GRAY8 && Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF")) {
+            if (annotImg.getType() == ImagePlus.GRAY8 &&
+                    Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF") &&
+                            getMinMax((byte[]) annotImg.getProcessor().getPixels()).getInterval() > Float.MIN_VALUE) {
 
-                System.out.println(annotImgPath.getAbsolutePath());
+                System.out.println("Computing distance map...");
 
-                System.out.println("Compute distance map...");
+                IJ.run(annotImg, "Options...", "iterations=1 count=1 black");
                 IJ.run(annotImg, "Distance Map", "");
 
-                System.out.println("");
+//                System.out.println("BEFORE:");
+//                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
 
-                annotImg.show();
+                minMaxNormalizeByteImage(annotImg);
 
-                byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
-                float[] annotImgRange = getMinMax(annotImgPixels);
-                System.out.println("Range = [ " + annotImgRange[0] + " / " + annotImgRange[1] + " ]");
+//                System.out.println("AFTER:");
+//                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
 
-                if (annotImgRange[1] - annotImgRange[0] > Float.MIN_VALUE) {
+                byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels(); // get array after distance map transform
 
-                    // compute summed area table
-<<<<<<< HEAD
-                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, W, H);
-                    float[] overlapImg = computeSumOverRect(annotIntegralImg, W, H, R);
-=======
-//                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, annotImg.getWidth(), annotImg.getHeight());
-//                    float[] overlapImg = computeSumOverRect(annotIntegralImg, annotImg.getWidth(), annotImg.getHeight(), R);
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
+                if (getMinMax(annotImgPixels).getInterval() > Float.MIN_VALUE) {
 
-                    // min-max for sumOverRec
-//                    float[] overlapImgRange = getMinMax(overlapImg);
+                    // compute summed area table (deprecated approach)
+//                    float[] annotIntegralImg = computeIntegralImage(annotImgPixels, W, H);
+//                    float[] overlapImg = computeSumOverRect(annotIntegralImg, W, H, R);
+
                     //************************************************************
                     // sample positives
-
-<<<<<<< HEAD
-                    //cws compute using overlapImg[]
-                    float[] cws = new float[overlapImg.length];
-
-                    for (int j = 0; j < cws.length; j++) {
-
-                        // place zero margin of R
-                        boolean isInside =  (j % W >= R) && (j % W < W-R) && (j / W >= R) && (j / W < H-R);
-                        cws[j] = ((isInside)? (float) Math.pow(overlapImg[j], 3) : 0f) + ((j==0)? 0 : cws[j-1]);
-
-                    }
-
-
-                    // sample POSITIVES locations
-                    int[] smp = sampleI(N, cws);
-
-                    // sampled location class indexes
-                    int[] smpTag = new int[smp.length];
-                    for (int i = 0; i < smp.length; i++) {
-                        smpTag[i] = 1;
-                    }
-
-                    Overlay ov = new Overlay();
-=======
-                    //cws compute
                     float[] cws = new float[annotImgPixels.length];
-                    float weight;
-                    int x, y;
 
                     for (int j = 0; j < cws.length; j++) {
-                        x = j % annotImg.getWidth();
-                        y = j / annotImg.getWidth();
-                        weight = (margin(x, annotImg.getWidth(), R) && margin(y, annotImg.getHeight(), R))? (float) Math.pow(annotImgPixels[j] & 0xff, 2) : 0f;
+                        float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 2) : 0f;
                         cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
 
-                    int[] smpPos = sampleI(N, cws); // sample positives
+                    // sample locations based on the weights
+                    int[] smpPos = sampleI(N, cws);
+                    // sampled location class indexes
+                    int[] smpTag = new int[smpPos.length];
+                    for (int i = 0; i < smpPos.length; i++) smpTag[i] = 1;
 
                     //************************************************************
-                    // sample negatives
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
-
-                    // invert annotImg
+                    // sample negatives, invert weight image used to compute cws (min/max invert)
+//                    invertByteArray(annotImgPixels);
 
 
                     //************************************************************
+                    // show overlay
                     Overlay ov = new Overlay();
 
                     for (int i = 0; i < smpPos.length; i++) {
 
-                        OvalRoi p = new OvalRoi(smpPos[i]%annotImg.getWidth()+.5f-(R/2f), smpPos[i]/annotImg.getWidth()+.5f-(R/2f), R, R);
-                        p.setFillColor(new Color(1f,0f,0f,0.1f));
+                        OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
+                        p.setFillColor(new Color(1f,0f,0f,0.02f));
                         ov.add(p);
 
-//                        PointRoi pp = new PointRoi(smpPos[i]%annotImg.getWidth()+.5f, smpPos[i]/annotImg.getWidth()+.5f);
-//                        ov.add(pp);
+                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
+                        ov.add(pp);
                     }
 
-                    annotImg.setOverlay(ov);
-                    annotImg.show();
+//                    annotImg.setOverlay(ov);
+//                    annotImg.show();
 
-                    ImagePlus overlapImgPlus = new ImagePlus(annotImgPath.getAbsolutePath()); //new ImagePlus("sumOver d2=" +IJ.d2s(R,0), new ByteProcessor(annotImg.getWidth(), annotImg.getHeight(), annotImgPixels));
-                    overlapImgPlus.setOverlay(ov);
-                    overlapImgPlus.show();
+//                    ImagePlus overlapImgPlus = new ImagePlus(fOrigin.getAbsolutePath());
+//                    overlapImgPlus.show();
+                    originStackImg.show();
+                    originStackImg.setOverlay(ov);
+
+
                     //************************************************************
-
+                    //
                     //
 
-                    String dd = outDir.getAbsolutePath();
-                    System.out.println(dd);
+//                    String dd = outDir.getAbsolutePath();
+//                    System.out.println(dd);
 
-                    // extract the patches at sampled locations
-                    countSamples = patchExtract(
-                            smp, smpTag, countSamples,
-                            annotImg.getWidth(), annotImg.getHeight(), annotImg.getStackSize(), R,
-                            annotImgPixels,
-                            annotImg.getShortTitle(),
-                            outDir
-                    );
+                    if (true) { // move it before the overlay shown
+                        // extract the patches at sampled locations
+                        countSamples = patchExtract(
+                                smpPos, smpTag, countSamples,
+                                W, H, L, R,
+//                                annotImgPixels,
+                                originStackImg,
+                                annotImg.getShortTitle(),
+                                outDir
+                        );
 
-                    //
-                    System.out.println("nr samples = " + countSamples);
-
-                    // sample NEGATIVES locations using the inverted image
-                    //
+                    }
 
 
                 }
                 else {
-                    System.out.println("no annotations found");
+                    System.out.println("distance map had zero range.");
                 }
-
-//                float annotFuzzyMin = Float.POSITIVE_INFINITY, annotFuzzyMax = Float.NEGATIVE_INFINITY;
-//                for (int i = 0; i < annotImgPixels.length; i++) {
-//                    if ((annotImgPixels[i] & 0xff) < annotFuzzyMin) {
-//                        annotFuzzyMin = annotImgPixels[i] & 0xff;
-//                    }
-//                    if ((annotImgPixels[i] & 0xff) > annotFuzzyMax) {
-//                        annotFuzzyMax = annotImgPixels[i] & 0xff;
-//                    }
-//                }
-
             }
-
-            // sample negatives with the inverted image
-
+            else {
+                System.out.println("image not byte8 or has no tif extension or no annots found.");
+            }
         }
     }
 
-<<<<<<< HEAD
+    private void minMaxNormalizeByteImage(ImagePlus imp){
+        byte[] impArray = (byte[])imp.getProcessor().getPixels();
+        Range impRange = getMinMax(impArray);
+        for (int i = 0; i < impArray.length; i++) {
+             int scaledVal =  (int)((((impArray[i] & 0xff) - impRange.minValue) / impRange.maxValue) * 255f);
+             scaledVal = (scaledVal>255)?255:(scaledVal<0)?0:scaledVal;
+             impArray[i] = (byte)scaledVal;
+        }
+    }
+
+    private void invertByteImage(ImagePlus imp){
+        invertByteArray((byte[])imp.getProcessor().getPixels());
+    }
+
+    private void invertByteArray(byte[] impArray) {
+        for (int i = 0; i < impArray.length; i++) {
+            int scaledVal = 255 - (impArray[i] & 0xff);
+            scaledVal = (scaledVal>255)?255:(scaledVal<0)?0:scaledVal;
+            impArray[i] = (byte)scaledVal;
+        }
+    }
+
     private static int patchExtract(int[] idxList, int[] classIdx, int startCount,
                                     int W, int H, int L, int R,
-                                    byte[] imgSampled,
+//                                    byte[] imgSampled,
+                                    ImagePlus originImage,
                                     String annotImgName,
                                     File outDir) {
 
-        String outDirPath = outDir.getAbsolutePath()+File.separator+"patch.log";
+        String outDirPath = outDir.getAbsolutePath() + File.separator + "patch.log";
 
         int currPatchIdx = startCount;
 
-        System.out.println(outDirPath);
+//        System.out.println(outDirPath);
 
-        try(FileWriter fw = new FileWriter(outDirPath, true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw))
-        {
+        try (FileWriter fw = new FileWriter(outDirPath, true);
+             BufferedWriter bw = new BufferedWriter(fw);
+             PrintWriter out = new PrintWriter(bw)) {
 
             if (currPatchIdx == 0) {
                 out.println("#name,x,y,R,annot,tag");
@@ -299,22 +272,42 @@ public class PatchExtractor implements PlugIn {
 
                 int x = idxList[i] % W;
                 int y = idxList[i] / W;
+
+                if (x-R>=0 && x+R<W && y-R>=0 && y+R<H) {
+
+
+
                 currPatchIdx++;
 
                 // compute the patch from the annotated image stack
                 String patchName = String.format("%015d.tif", currPatchIdx);
-                String outPatchPath = outDir.getAbsolutePath()+File.separator+patchName;
+                String outPatchPath = outDir.getAbsolutePath() + File.separator + patchName;
 
-                System.out.println(outPatchPath);
+                int Wptch = (2 * R + 1) * L;
+                int Hptch = 2 * R + 1;
 
-//                ImagePlus patchImage = new ImagePlus(patchName, new ImageStack(2*R+1, 2*R+1));
-                ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2*R+1)*L, 2*R+1));
-//                FileSaver fs = new FileSaver(patchImage);
+                ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2 * R + 1) * L, 2 * R + 1));
+                byte[] patchImageArray = (byte[])patchImage.getProcessor().getPixels();
 
-                IJ.saveAs(patchImage, "Tiff", outPatchPath);
+
+
+                for (int z = 0; z < L; z++) { // go throught the values in the origin (where the annots are from)
+                    for (int x1 = x-R; x1 <= x+R; x1++) {
+                        for (int j1 = y-R; j1 <= y+R; j1++) {
+                            int xptch = z*(2*R+1);
+                            byte[] lay = (byte[])originImage.getStack().getProcessor((int)(z+1)).getPixels();
+//                            System.out.println("val =" + (j1+R) * Wptch + (x1+R + xptch));
+//                            System.out.println("(j1+R) = " + (j1+R));
+//                            System.out.println("(x1+R) = " + (x1+R));
+                            patchImageArray[(j1-(y-R)) * Wptch + (x1-(x-R) + xptch)] = lay[j1*(W)+x1];
+                        }
+                    }
+                }
+
+                IJ.saveAs(patchImage, "Tiff", outPatchPath); // alternative Jpg format to add
 
                 out.println(patchName + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
-
+                }
             }
 
         } catch (IOException e) {
@@ -323,13 +316,11 @@ public class PatchExtractor implements PlugIn {
         }
 
 
-
         return currPatchIdx;
+    }
 
-=======
-    private static boolean margin(int x, int W, int marginVal) {
-        return (x>=marginVal && x<W-marginVal)? true : false ;
->>>>>>> 87820bf44ff2e38994c93822cfa4d78c6ce5e22a
+    private static boolean isInsideMargin(int idx, int W, int H, int margin) {
+        return  (idx % W >= margin) && (idx % W < W-margin) && (idx / W >= margin) && (idx / W < H-margin);
     }
 
     private static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
@@ -361,37 +352,38 @@ public class PatchExtractor implements PlugIn {
 
     }
 
-    private float[] getMinMax(byte[] I){
+    private Range getMinMax(byte[] I){
 
-        float[] range = new float[]{Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+        Range r = new Range();
 
         for (int i = 0; i < I.length; i++) {
-            if ((I[i] & 0xff) < range[0]) {
-                range[0] = I[i] & 0xff;
+            if ((I[i] & 0xff) < r.minValue) {
+                r.minValue = I[i] & 0xff;
             }
-            if ((I[i] & 0xff) > range[1]) {
-                range[1] = I[i] & 0xff;
+            if ((I[i] & 0xff) > r.maxValue) {
+                r.maxValue = I[i] & 0xff;
             }
         }
 
-        return range;
+        return r;
 
     }
 
-    private float[] getMinMax(float[] I) {
+    private Range getMinMax(float[] I) {
 
-        float[] range = new float[]{Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY};
+        Range r = new Range();
 
         for (int i = 0; i < I.length; i++) {
-            if (I[i] < range[0]) {
-                range[0] = I[i];
+            if (I[i] < r.minValue) {
+                r.minValue = I[i];
             }
-            if (I[i] > range[1]) {
-                range[1] = I[i];
+            if (I[i] > r.maxValue) {
+                r.maxValue = I[i];
             }
         }
 
-        return range;
+        return r;
+
     }
 
     private float[] computeSumOverRect(float[] I, int W, int H, int d2) {
@@ -472,4 +464,24 @@ public class PatchExtractor implements PlugIn {
         return out;
     }
 
+    class Range {
+
+        public float minValue;
+        public float maxValue;
+
+        public Range(){
+            this.minValue = Float.POSITIVE_INFINITY;
+            this.maxValue = Float.NEGATIVE_INFINITY;
+        }
+
+        public float getInterval() {
+            return this.maxValue - this.minValue;
+        }
+
+
+        public void print() {
+             System.out.println("Range = [ " + this.minValue + "  - " + this.maxValue + " ]");
+        }
+
+    }
 }
