@@ -177,7 +177,7 @@ public class PatchExtractor implements PlugIn {
                     for (int i = 0; i < smpPos.length; i++) {
 
                         OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
-                        p.setFillColor(new Color(1f,0f,0f,0.02f));
+                        p.setFillColor(new Color(1f,0f,0f,0.1f));
                         ov.add(p);
 
                         PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
@@ -284,7 +284,7 @@ public class PatchExtractor implements PlugIn {
                 String outPatchPath = outDir.getAbsolutePath() + File.separator + patchName;
 
                 int Wptch = (2 * R + 1) * L;
-                int Hptch = 2 * R + 1;
+//                int Hptch = 2 * R + 1;
 
                 ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2 * R + 1) * L, 2 * R + 1));
                 byte[] patchImageArray = (byte[])patchImage.getProcessor().getPixels();
