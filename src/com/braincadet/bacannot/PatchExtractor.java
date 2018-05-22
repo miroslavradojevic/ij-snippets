@@ -137,7 +137,7 @@ public class PatchExtractor implements PlugIn {
 //                System.out.println("BEFORE:");
 //                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
 
-                minMaxNormalizeByteImage(annotImg);
+                minMaxNormalizeByteImage(annotImg); // annotImg values wrap between 0 and 255
 
 //                System.out.println("AFTER:");
 //                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
@@ -155,7 +155,10 @@ public class PatchExtractor implements PlugIn {
                     float[] cws = new float[annotImgPixels.length];
 
                     for (int j = 0; j < cws.length; j++) {
-                        float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 2) : 0f;
+//                        float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f;
+                        float weight = (isInsideCircle(j, W, H))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f;
+
+
                         cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
 
@@ -165,53 +168,79 @@ public class PatchExtractor implements PlugIn {
                     int[] smpTag = new int[smpPos.length];
                     for (int i = 0; i < smpPos.length; i++) smpTag[i] = 1;
 
-                    //************************************************************
-                    // sample negatives, invert weight image used to compute cws (min/max invert)
-//                    invertByteArray(annotImgPixels);
 
+                    countSamples = patchExtract(
+                            smpPos, smpTag, countSamples,
+                            W, H, L, R,
+                            originStackImg,
+                            annotImg.getShortTitle(),
+                            outDir
+                    );
 
                     //************************************************************
-                    // show overlay
+                    // create overlay
                     Overlay ov = new Overlay();
 
                     for (int i = 0; i < smpPos.length; i++) {
 
                         OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
-                        p.setFillColor(new Color(1f,0f,0f,0.1f));
+                        p.setFillColor(new Color(1f,0f,0f,0.3f));
                         ov.add(p);
 
-                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
-                        ov.add(pp);
+//                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
+//                        ov.add(pp);
                     }
 
-//                    annotImg.setOverlay(ov);
-//                    annotImg.show();
+                    //************************************************************
+                    // sample negatives, invert weight value used to compute cws (min/max invert)
+//                    invertByteArray(annotImgPixels);
+                    for (int j = 0; j < cws.length; j++) {
+//                        float weight = (isInsideMargin(j, W, H, R) && (annotImgPixels[j] & 0xff) > 0 )? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f;
+                        float weight = (isInsideCircle(j, W, H))? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f; //  && (annotImgPixels[j] & 0xff) > 0
+                        cws[j] = weight + ((j==0)? 0 : cws[j-1]);
+                    }
+
+                    smpPos = sampleI(N, cws);
+                    // sampled location class indexes
+                    //smpTag = new int[smpPos.length];
+                    for (int i = 0; i < smpPos.length; i++) smpTag[i] = 0;
+
+
+                    countSamples = patchExtract(
+                            smpPos, smpTag, countSamples,
+                            W, H, L, R,
+                            originStackImg,
+                            annotImg.getShortTitle(),
+                            outDir
+                    );
+
+                    for (int i = 0; i < smpPos.length; i++) {
+
+                        OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
+                        p.setFillColor(new Color(0f,0f,1f,0.3f));
+                        ov.add(p);
+
+//                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
+//                        ov.add(pp);
+                    }
+
+                    annotImg.show();
+                    annotImg.setOverlay(ov);
 
 //                    ImagePlus overlapImgPlus = new ImagePlus(fOrigin.getAbsolutePath());
 //                    overlapImgPlus.show();
                     originStackImg.show();
                     originStackImg.setOverlay(ov);
 
-
                     //************************************************************
-                    //
-                    //
+                    // save used overlays
 
 //                    String dd = outDir.getAbsolutePath();
 //                    System.out.println(dd);
 
-                    if (true) { // move it before the overlay shown
-                        // extract the patches at sampled locations
-                        countSamples = patchExtract(
-                                smpPos, smpTag, countSamples,
-                                W, H, L, R,
-//                                annotImgPixels,
-                                originStackImg,
-                                annotImg.getShortTitle(),
-                                outDir
-                        );
-
-                    }
+//                    if (true) { // move it before the overlay shown
+//                        // extract the patches at sampled locations
+//                    }
 
 
                 }
@@ -249,7 +278,6 @@ public class PatchExtractor implements PlugIn {
 
     private static int patchExtract(int[] idxList, int[] classIdx, int startCount,
                                     int W, int H, int L, int R,
-//                                    byte[] imgSampled,
                                     ImagePlus originImage,
                                     String annotImgName,
                                     File outDir) {
@@ -257,8 +285,6 @@ public class PatchExtractor implements PlugIn {
         String outDirPath = outDir.getAbsolutePath() + File.separator + "patch.log";
 
         int currPatchIdx = startCount;
-
-//        System.out.println(outDirPath);
 
         try (FileWriter fw = new FileWriter(outDirPath, true);
              BufferedWriter bw = new BufferedWriter(fw);
@@ -275,8 +301,6 @@ public class PatchExtractor implements PlugIn {
 
                 if (x-R>=0 && x+R<W && y-R>=0 && y+R<H) {
 
-
-
                 currPatchIdx++;
 
                 // compute the patch from the annotated image stack
@@ -288,16 +312,11 @@ public class PatchExtractor implements PlugIn {
                 ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2 * R + 1) * L, 2 * R + 1));
                 byte[] patchImageArray = (byte[])patchImage.getProcessor().getPixels();
 
-
-
                 for (int z = 0; z < L; z++) { // go throught the values in the origin (where the annots are from)
                     for (int x1 = x-R; x1 <= x+R; x1++) {
                         for (int j1 = y-R; j1 <= y+R; j1++) {
                             int xptch = z*(2*R+1);
                             byte[] lay = (byte[])originImage.getStack().getProcessor((int)(z+1)).getPixels();
-//                            System.out.println("val =" + (j1+R) * Wptch + (x1+R + xptch));
-//                            System.out.println("(j1+R) = " + (j1+R));
-//                            System.out.println("(x1+R) = " + (x1+R));
                             if (z % 2 == 0)
                                 patchImageArray[(j1-(y-R)) * Wptch + (x1-(x-R) + xptch)] = lay[j1*(W)+x1];
                             else
@@ -306,9 +325,10 @@ public class PatchExtractor implements PlugIn {
                     }
                 }
 
-                IJ.saveAs(patchImage, "Tiff", outPatchPath); // alternative Jpg format to add
+                IJ.saveAs(patchImage, "Jpg", outPatchPath); // alternative Jpg format to add Tiff
 
                 out.println(patchName + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
+
                 }
             }
 
@@ -324,6 +344,11 @@ public class PatchExtractor implements PlugIn {
     private static boolean isInsideMargin(int idx, int W, int H, int margin) {
         return  (idx % W >= margin) && (idx % W < W-margin) && (idx / W >= margin) && (idx / W < H-margin);
     }
+
+    private static boolean isInsideCircle(int idx, int W, int H) {
+        return Math.pow(idx % W - W/2, 2) + Math.pow(idx / W - H/2, 2) <= Math.pow(0.9 * 0.5 * Math.min(W, H), 2);
+    }
+
 
     private static ImageStack getPatchArrays(ImagePlus inImg, int atX, int atY, int atR) {
 
