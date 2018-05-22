@@ -284,7 +284,6 @@ public class PatchExtractor implements PlugIn {
                 String outPatchPath = outDir.getAbsolutePath() + File.separator + patchName;
 
                 int Wptch = (2 * R + 1) * L;
-//                int Hptch = 2 * R + 1;
 
                 ImagePlus patchImage = new ImagePlus(patchName, new ByteProcessor((2 * R + 1) * L, 2 * R + 1));
                 byte[] patchImageArray = (byte[])patchImage.getProcessor().getPixels();
@@ -299,7 +298,10 @@ public class PatchExtractor implements PlugIn {
 //                            System.out.println("val =" + (j1+R) * Wptch + (x1+R + xptch));
 //                            System.out.println("(j1+R) = " + (j1+R));
 //                            System.out.println("(x1+R) = " + (x1+R));
-                            patchImageArray[(j1-(y-R)) * Wptch + (x1-(x-R) + xptch)] = lay[j1*(W)+x1];
+                            if (z % 2 == 0)
+                                patchImageArray[(j1-(y-R)) * Wptch + (x1-(x-R) + xptch)] = lay[j1*(W)+x1];
+                            else
+                                patchImageArray[(j1-(y-R)) * Wptch + ( -(x1-(x-R))+(2*R) + xptch)] = lay[j1*(W)+x1];
                         }
                     }
                 }
