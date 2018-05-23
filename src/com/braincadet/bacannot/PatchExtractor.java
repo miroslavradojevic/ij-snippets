@@ -11,14 +11,14 @@ import ij.plugin.ContrastEnhancer;
 import ij.plugin.PlugIn;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
-import javafx.fxml.FXMLLoader;
 
 import java.awt.*;
-import java.awt.geom.Arc2D;
 import java.io.*;
 import java.util.Random;
 
 public class PatchExtractor implements PlugIn {
+
+    boolean DO_NEGATIVES = false;
 
     String annotDir;
 //    String srcStack;
@@ -155,9 +155,7 @@ public class PatchExtractor implements PlugIn {
                     float[] cws = new float[annotImgPixels.length];
 
                     for (int j = 0; j < cws.length; j++) {
-//                        float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f;
-                        float weight = (isInsideCircle(j, W, H))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f;
-
+                        float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f; // isInsideCircle(j, W, H)
 
                         cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
@@ -191,37 +189,39 @@ public class PatchExtractor implements PlugIn {
 //                        ov.add(pp);
                     }
 
-                    //************************************************************
-                    // sample negatives, invert weight value used to compute cws (min/max invert)
+
+                    if (DO_NEGATIVES) {
+
+                        //************************************************************
+                        // sample negatives, invert weight value used to compute cws (min/max invert)
 //                    invertByteArray(annotImgPixels);
-                    for (int j = 0; j < cws.length; j++) {
-//                        float weight = (isInsideMargin(j, W, H, R) && (annotImgPixels[j] & 0xff) > 0 )? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f;
-                        float weight = (isInsideCircle(j, W, H))? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f; //  && (annotImgPixels[j] & 0xff) > 0
-                        cws[j] = weight + ((j==0)? 0 : cws[j-1]);
-                    }
+                        for (int j = 0; j < cws.length; j++) {
+                            float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f; // isInsideCircle(j, W, H)  && (annotImgPixels[j] & 0xff) > 0
+                            cws[j] = weight + ((j==0)? 0 : cws[j-1]);
+                        }
 
-                    smpPos = sampleI(N, cws);
-                    // sampled location class indexes
-                    //smpTag = new int[smpPos.length];
-                    for (int i = 0; i < smpPos.length; i++) smpTag[i] = 0;
+                        smpPos = sampleI(N, cws);
+                        // sampled location class indexes
+                        //smpTag = new int[smpPos.length];
+                        for (int i = 0; i < smpPos.length; i++) smpTag[i] = 0;
 
+                        countSamples = patchExtract(
+                                smpPos, smpTag, countSamples,
+                                W, H, L, R,
+                                originStackImg,
+                                annotImg.getShortTitle(),
+                                outDir
+                        );
 
-                    countSamples = patchExtract(
-                            smpPos, smpTag, countSamples,
-                            W, H, L, R,
-                            originStackImg,
-                            annotImg.getShortTitle(),
-                            outDir
-                    );
+                        for (int i = 0; i < smpPos.length; i++) {
 
-                    for (int i = 0; i < smpPos.length; i++) {
-
-                        OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
-                        p.setFillColor(new Color(0f,0f,1f,0.3f));
-                        ov.add(p);
+                            OvalRoi p = new OvalRoi(smpPos[i]%W+.5f-R, smpPos[i]/W+.5f-R, 2*R, 2*R);
+                            p.setFillColor(new Color(0f,0f,1f,0.3f));
+                            ov.add(p);
 
 //                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
 //                        ov.add(pp);
+                        }
                     }
 
                     annotImg.show();

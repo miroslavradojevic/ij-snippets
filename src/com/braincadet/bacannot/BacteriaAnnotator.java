@@ -169,7 +169,10 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
                     // get global image coords and overwrite I(xOut, yOut) to 255
                     int xOut = xPatch + (j%wPatch);
                     int yOut = yPatch + (j/wPatch);
-                    imOutArray[yOut * inImg.getWidth() + xOut] = (byte) 255;
+
+                    if (xOut>=0 && xOut < inImg.getWidth() && yOut>=0 && yOut < inImg.getHeight()) {
+                        imOutArray[yOut * inImg.getWidth() + xOut] = (byte) 255;
+                    }
                 }
             }
 
