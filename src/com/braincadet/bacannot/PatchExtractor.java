@@ -19,9 +19,9 @@ import java.util.Random;
 public class PatchExtractor implements PlugIn {
 
     boolean DO_NEGATIVES = false;
+    static String SAVE_EXT = "Jpg";
 
     String annotDir;
-//    String srcStack;
     int R = 10; // size of the patch
     int N = 100; // number of samples
 
@@ -291,7 +291,7 @@ public class PatchExtractor implements PlugIn {
              PrintWriter out = new PrintWriter(bw)) {
 
             if (currPatchIdx == 0) {
-                out.println("#name,x,y,R,annot,tag");
+                out.println("#patchName,x,y,R,annotName,tag");
             }
 
             for (int i = 0; i < idxList.length; i++) {
@@ -304,7 +304,7 @@ public class PatchExtractor implements PlugIn {
                 currPatchIdx++;
 
                 // compute the patch from the annotated image stack
-                String patchName = String.format("%015d.tif", currPatchIdx);
+                String patchName = String.format("%015d", currPatchIdx);
                 String outPatchPath = outDir.getAbsolutePath() + File.separator + patchName;
 
                 int Wptch = (2 * R + 1) * L;
@@ -325,9 +325,9 @@ public class PatchExtractor implements PlugIn {
                     }
                 }
 
-                IJ.saveAs(patchImage, "Jpg", outPatchPath); // alternative Jpg format to add Tiff
+                IJ.saveAs(patchImage, SAVE_EXT, outPatchPath); // alternative Jpg format to add Tiff
 
-                out.println(patchName + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
+                out.println(patchName+'.'+SAVE_EXT.toLowerCase() + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
 
                 }
             }
