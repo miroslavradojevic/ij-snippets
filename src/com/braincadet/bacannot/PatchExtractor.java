@@ -327,7 +327,7 @@ public class PatchExtractor implements PlugIn {
 
                 IJ.saveAs(patchImage, SAVE_EXT, outPatchPath); // alternative Jpg format to add Tiff
 
-                out.println(patchName+'.'+SAVE_EXT.toLowerCase() + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
+                out.println(patchName+'.' + SAVE_EXT.toLowerCase() + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
 
                 }
             }
