@@ -13,3 +13,4 @@ bacannot.iml
 
 # ignore the entire contents of build/ directory in the repository, including all of its files and subdirectories
 build/
+*.pyc

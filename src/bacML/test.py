@@ -24,13 +24,12 @@ import pandas as pd
 ################################################################################
 #Read Image, and change to BGR
 im1 = (imread("laska.png")).astype(float32) # [:,:,:3]
-print('png image, ', im1.shape)
-print(type(im1))
+print(im1.shape, type(im1))
 
 (train_x, train_y), (test_x, test_y) = iris_data.load_data()
 
-# a = np.array([[1,2,3], [4,5,6]])
-# print(a.shape)
+print(train_x, train_x.shape, type(train_x))
+print(train_y, train_y.shape, type(train_y))
 
 ##############################################################
 print("------------------------------------", end='\n')
@@ -45,7 +44,7 @@ print(type(data1))
 
 row20 = np.zeros((1,20))
 
-# .reshape([])
+
 # https://stackoverflow.com/questions/20763012/creating-a-pandas-dataframe-from-a-numpy-array-how-do-i-specify-the-index-colum
 # https://stackoverflow.com/questions/13730468/from-nd-to-1d-arrays
 # methods
