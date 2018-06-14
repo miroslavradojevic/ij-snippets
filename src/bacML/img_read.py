@@ -20,38 +20,37 @@ patchDir = os.path.join(patchDir, '')
 fname = os.path.join(patchDir, 'patch.log')
 print(fname, end='\n\n')
 
-c = []#np.array([])
-a = np.array([1,2,3])
-c = vstack((c,a))
-print(c)
+# ys = np.array([], dtype=np.float32).reshape(0,5)# int64
+# xs = np.array([[1,2,3,4,5],[10,20,30,40,50]])
+# ys = np.vstack([ys, xs])
+# print(ys)
 
-b = np.array([4,5,6]) #https://stackoverflow.com/questions/22732589/concatenating-empty-array-in-numpy
-c = vstack((c,b))
-print(c)
-
-done = True
-if done:
-    sys.exit()
+# if True:
+# #     print("exiting...")
+# #     sys.exit()
 
 #####################################
-# read
-trainX = []
-trainY = []
-trainXY = []
-
-
-
+isFirst = True
+count = 0
 
 f = open(fname, 'r')
 reader = csv.reader(f)
 for row in reader:
     if not ''.join(row).startswith("#"):
         imgPath = os.path.join(patchDir, row[0])
-        im1 = (imread(imgPath)).astype(float32)
-        # print(im1.shape, '    ', im1.size)
-        im2 = im1.reshape(1, im1.size) # concatenate to the array .reshape(1,N)
-        # im3 = pd.DataFrame(data=im2)
-        print(row, '\n', imgPath, '\n', im1.shape, '\n', type(im1), '\n', im2.shape, type(im2), end='\n\n')
+        im = (imread(imgPath)).astype(float32)
+        imHeight,imWidth = im.shape
+        imSize = im.size
+        if isFirst:
+            dataX = np.array(im, dtype=np.float32).reshape(1, imSize)
+            isFirst = False
+        else:
+            dataX1 = np.array(im, dtype=np.float32).reshape(1, imSize)
+            dataX = np.concatenate([dataX,   dataX1])
+
+        count = count + 1
+        print('\n', count , ': ', row, '\n', imgPath, ' -> ', dataX.shape, end='\n\n')# '\ndata.type=', str(type(dataX)),
+
 f.close()
 
 #####################################

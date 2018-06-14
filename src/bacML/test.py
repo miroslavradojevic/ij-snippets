@@ -44,7 +44,6 @@ print(type(data1))
 
 row20 = np.zeros((1,20))
 
-
 # https://stackoverflow.com/questions/20763012/creating-a-pandas-dataframe-from-a-numpy-array-how-do-i-specify-the-index-colum
 # https://stackoverflow.com/questions/13730468/from-nd-to-1d-arrays
 # methods
