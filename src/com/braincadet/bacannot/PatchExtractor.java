@@ -14,11 +14,13 @@ import ij.process.FloatProcessor;
 
 import java.awt.*;
 import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Random;
 
 public class PatchExtractor implements PlugIn {
 
-    boolean DO_NEGATIVES = false;
+    boolean DO_NEGATIVES = true;
     static String SAVE_EXT = "Jpg";
 
     String annotDir;
@@ -80,8 +82,10 @@ public class PatchExtractor implements PlugIn {
 
         System.out.println("found " + files.length + " annotations");
 
+        Date date = new Date() ;
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss") ;
 
-        File outDir = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + File.separator);
+        File outDir = new File(fAnnotDir.getParent() + File.separator + PATCH_DIR_NAME + "_" + dateFormat.format(date) + File.separator);
 
         if (! outDir.exists()){
             outDir.mkdir(); // use directory.mkdirs(); for subdirs
@@ -122,17 +126,20 @@ public class PatchExtractor implements PlugIn {
                 continue;
             }
             int L = originStackImg.getStackSize();
-            System.out.println("L = " + L);
+//            System.out.println("L = " + L);
 
             // process if read annot image is 8bit and .tif
             if (annotImg.getType() == ImagePlus.GRAY8 &&
                     Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF") &&
                             getMinMax((byte[]) annotImg.getProcessor().getPixels()).getInterval() > Float.MIN_VALUE) {
 
-                System.out.println("Computing distance map...");
+//                System.out.println("Computing distance map...");
 
                 IJ.run(annotImg, "Options...", "iterations=1 count=1 black");
-                IJ.run(annotImg, "Distance Map", "");
+                IJ.run(annotImg, "Skeletonize", "");
+//                IJ.run(annotImg, "Distance Map", "");
+
+//                annotImg.duplicate().show();
 
 //                System.out.println("BEFORE:");
 //                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
@@ -142,7 +149,7 @@ public class PatchExtractor implements PlugIn {
 //                System.out.println("AFTER:");
 //                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
 
-                byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels(); // get array after distance map transform
+                byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
 
                 if (getMinMax(annotImgPixels).getInterval() > Float.MIN_VALUE) {
 
@@ -154,18 +161,32 @@ public class PatchExtractor implements PlugIn {
                     // sample positives
                     float[] cws = new float[annotImgPixels.length];
 
+                    float weightMin = Float.POSITIVE_INFINITY;
+                    float weightMax = Float.NEGATIVE_INFINITY;
+
                     for (int j = 0; j < cws.length; j++) {
+
                         float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f; // isInsideCircle(j, W, H)
+
+                        if (weight > weightMax) {
+                            weightMax = weight;
+                        }
+
+                        if (weight < weightMin) {
+                            weightMin = weight;
+                        }
 
                         cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
+
+//                    System.out.println("weightMax = " + weightMax);
+//                    System.out.println("weightMin = " + weightMin);
 
                     // sample locations based on the weights
                     int[] smpPos = sampleI(N, cws);
                     // sampled location class indexes
                     int[] smpTag = new int[smpPos.length];
                     for (int i = 0; i < smpPos.length; i++) smpTag[i] = 1;
-
 
                     countSamples = patchExtract(
                             smpPos, smpTag, countSamples,
@@ -192,11 +213,24 @@ public class PatchExtractor implements PlugIn {
 
                     if (DO_NEGATIVES) {
 
+                        annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
+
+
+
+
+                        IJ.run(annotImg, "Invert", "");
+                        IJ.run(annotImg, "Options...", "iterations=1 count=1 black");
+                        IJ.run(annotImg, "Skeletonize", "");
+
+//                        annotImg.duplicate().show();
+
+                        annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
+
                         //************************************************************
                         // sample negatives, invert weight value used to compute cws (min/max invert)
 //                    invertByteArray(annotImgPixels);
                         for (int j = 0; j < cws.length; j++) {
-                            float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(255 - (annotImgPixels[j] & 0xff), 1) : 0f; // isInsideCircle(j, W, H)  && (annotImgPixels[j] & 0xff) > 0
+                            float weight = (isInsideMargin(j, W, H, R))? (float) Math.pow(annotImgPixels[j] & 0xff, 1) : 0f; // isInsideCircle(j, W, H)  && (annotImgPixels[j] & 0xff) > 0
                             cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                         }
 
