@@ -90,11 +90,11 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             rm.runCommand("Open", ff.getPath());
             if (rm.getCount()>0) {
 
-                System.out.println("overlay before = " + ((inImg.getOverlay() != null)? inImg.getOverlay().size() : "none"));
+//                System.out.println("overlay before = " + ((inImg.getOverlay() != null)? inImg.getOverlay().size() : "none"));
 
                 rm.moveRoisToOverlay(inImg);
 
-                System.out.println("overlay after = " + inImg.getOverlay().size());
+//                System.out.println("overlay after = " + inImg.getOverlay().size());
 
                 overlayAnnot = inImg.getOverlay();
                 rm.close();
@@ -142,12 +142,14 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     }
 
-    private void exportOverlayAnnot(boolean showResult, String originPath) {
+    private void exportOverlayAnnot(boolean showResult, String originInfo) {
 
         File directory = new File(imDir + File.separator + ANNNOT_DIR_NAME + File.separator);
 
         if (! directory.exists()){
+
             directory.mkdir(); // use directory.mkdirs(); for subdirs
+            System.out.println("Created " + directory.getAbsolutePath());
         }
 
         ImagePlus imOut = new ImagePlus(imName, new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
@@ -180,11 +182,8 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             rm.addRoi(overlayAnnot.get(i));
         }
 
-//        to save metadata: http://imagej.1557.x6.nabble.com/Push-Metadata-td4999917.html
-        String annotImgProp = (String)imOut.getProperty("Info");
-        System.out.println("Info BEFORE: " + annotImgProp);
-        imOut.setProperty("Info", originPath); // set new info
-        System.out.println("Info AFTER: " + (String)imOut.getProperty("Info"));
+//      save metadata: http://imagej.1557.x6.nabble.com/Push-Metadata-td4999917.html
+        imOut.setProperty("Info", originInfo); // set new info
 
         // save the annotated image with the added property
         FileSaver fs = new FileSaver(imOut);
@@ -323,15 +322,14 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         if (e.getKeyChar() == EXPORT_COMMAND) {
 
-            GenericDialog gd = new GenericDialog("Export annotations?");
-            gd.addStringField("origin", imDir, 80);
-            gd.showDialog();
-            if (gd.wasCanceled()) {
-                return;
-            }
-            else {
-                exportOverlayAnnot(false, gd.getNextString().replace("\"", ""));
-            }
+            //
+            exportAnnotation(imPath, imName);
+
+
+
+
+
+
 
         }
 
@@ -340,6 +338,21 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         }
 
         updateCircle();
+    }
+
+    private void exportAnnotation(String origin, String tag){
+        GenericDialog gd = new GenericDialog("Export annotations?");
+        gd.addStringField("origin", origin, 60);
+        gd.addStringField("tag", tag, 40);
+        gd.showDialog();
+        if (gd.wasCanceled()) {
+            return;
+        }
+        else {
+            String originPath = gd.getNextString().replace("\"", "");
+            String originTag = gd.getNextString();
+            exportOverlayAnnot(false, originPath + "|" + originTag);
+        }
     }
 
     @Override
@@ -357,15 +370,25 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         if (closedImageName.equals((imputImageName))) {
 
-            GenericDialog gd = new GenericDialog("Export annotations before closing?");
-            gd.addStringField("origin", imDir, 80);
-            gd.showDialog();
-            if (gd.wasCanceled()) {
-                return;
-            }
-            else {
-                exportOverlayAnnot(false, gd.getNextString().replace("\"", ""));
-            }
+
+
+            exportAnnotation(imPath, imName);
+
+//            GenericDialog gd = new GenericDialog("Export annotations?");
+//            gd.addStringField("origin", imPath, 60);
+//            gd.addStringField("tag", imName, 40);
+//            if (gd.wasCanceled()) {
+//                return;
+//            }
+//            else {
+//                String originPath = gd.getNextString().replace("\"", "");
+//                String originTag = gd.getNextString();
+//                exportOverlayAnnot(false, originPath + "|" + originTag);
+//            }
+
+
+
+
 
             if (imWind!=null)
                 imWind.removeKeyListener(this);

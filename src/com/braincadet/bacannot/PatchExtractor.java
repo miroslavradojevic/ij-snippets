@@ -21,7 +21,7 @@ import java.util.Random;
 public class PatchExtractor implements PlugIn {
 
     boolean DO_NEGATIVES = true;
-    static String SAVE_EXT = "Jpg";
+    static String SAVE_EXT = "Png";
 
     String annotDir;
     int R = 10; // size of the patch
@@ -113,9 +113,18 @@ public class PatchExtractor implements PlugIn {
                 continue;
             }
 
-            File fOrigin = new File((String)annotImg.getProperty("Info"));
+            String[] originInfo = ((String)annotImg.getProperty("Info")).split("\\|");
+            String originPath = originInfo[0];
+            String originTag = originInfo[1];
+
+            System.out.println("Info = " + (String)annotImg.getProperty("Info"));
+            System.out.println("length = " + originInfo.length);
+            System.out.println(originPath);
+            System.out.println(originTag);
+
+            File fOrigin = new File(originPath);
             if (fOrigin.exists() == false) {
-                System.out.println("Origin file does not exist."); // maybe check extension etc
+                System.out.println("Origin file at " + originPath + " does not exist."); // maybe check extension etc
                 continue;
             }
 
@@ -125,29 +134,18 @@ public class PatchExtractor implements PlugIn {
                 System.out.println("Origin file could not be read."); // maybe check extension etc
                 continue;
             }
+
             int L = originStackImg.getStackSize();
-//            System.out.println("L = " + L);
 
             // process if read annot image is 8bit and .tif
             if (annotImg.getType() == ImagePlus.GRAY8 &&
                     Tools.getFileExtension(annotImg.getTitle()).equalsIgnoreCase("TIF") &&
                             getMinMax((byte[]) annotImg.getProcessor().getPixels()).getInterval() > Float.MIN_VALUE) {
 
-//                System.out.println("Computing distance map...");
-
                 IJ.run(annotImg, "Options...", "iterations=1 count=1 black");
-                IJ.run(annotImg, "Skeletonize", "");
-//                IJ.run(annotImg, "Distance Map", "");
-
-//                annotImg.duplicate().show();
-
-//                System.out.println("BEFORE:");
-//                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
+                IJ.run(annotImg, "Skeletonize", ""); // "Distance Map"
 
                 minMaxNormalizeByteImage(annotImg); // annotImg values wrap between 0 and 255
-
-//                System.out.println("AFTER:");
-//                getMinMax((byte[]) annotImg.getProcessor().getPixels()).print();
 
                 byte[] annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
 
@@ -158,7 +156,7 @@ public class PatchExtractor implements PlugIn {
 //                    float[] overlapImg = computeSumOverRect(annotIntegralImg, W, H, R);
 
                     //************************************************************
-                    // sample positives
+                    // sample positives (originTag)
                     float[] cws = new float[annotImgPixels.length];
 
                     float weightMin = Float.POSITIVE_INFINITY;
@@ -179,9 +177,6 @@ public class PatchExtractor implements PlugIn {
                         cws[j] = weight + ((j==0)? 0 : cws[j-1]);
                     }
 
-//                    System.out.println("weightMax = " + weightMax);
-//                    System.out.println("weightMin = " + weightMin);
-
                     // sample locations based on the weights
                     int[] smpPos = sampleI(N, cws);
                     // sampled location class indexes
@@ -192,7 +187,8 @@ public class PatchExtractor implements PlugIn {
                             smpPos, smpTag, countSamples,
                             W, H, L, R,
                             originStackImg,
-                            annotImg.getShortTitle(),
+                            originPath,
+                            originTag+"_"+String.format("%d", 1),
                             outDir
                     );
 
@@ -243,7 +239,8 @@ public class PatchExtractor implements PlugIn {
                                 smpPos, smpTag, countSamples,
                                 W, H, L, R,
                                 originStackImg,
-                                annotImg.getShortTitle(),
+                                originPath,
+                                originTag+"_"+String.format("%d", 0),
                                 outDir
                         );
 
@@ -313,7 +310,8 @@ public class PatchExtractor implements PlugIn {
     private static int patchExtract(int[] idxList, int[] classIdx, int startCount,
                                     int W, int H, int L, int R,
                                     ImagePlus originImage,
-                                    String annotImgName,
+                                    String originPath,
+                                    String originTag,
                                     File outDir) {
 
         String outDirPath = outDir.getAbsolutePath() + File.separator + "patch.log";
@@ -325,7 +323,7 @@ public class PatchExtractor implements PlugIn {
              PrintWriter out = new PrintWriter(bw)) {
 
             if (currPatchIdx == 0) {
-                out.println("#patchName,x,y,R,annotName,tag");
+                out.println("#patchFileName,tagName,originPath");
             }
 
             for (int i = 0; i < idxList.length; i++) {
@@ -338,8 +336,17 @@ public class PatchExtractor implements PlugIn {
                 currPatchIdx++;
 
                 // compute the patch from the annotated image stack
-                String patchName = String.format("%015d", currPatchIdx);
-                String outPatchPath = outDir.getAbsolutePath() + File.separator + patchName;
+                String patchName = String.format("%015d_%d_%d_%d", currPatchIdx, x, y, R);
+                String outPatchPath = outDir.getAbsolutePath() + File.separator + originTag + File.separator + patchName;
+
+                // create directory if it does not exist
+
+                    File outDir1 = new File(outDir.getAbsolutePath() + File.separator + originTag + File.separator);
+
+                    if (! outDir1.exists()){
+                        outDir1.mkdir();
+                    }
+
 
                 int Wptch = (2 * R + 1) * L;
 
@@ -359,9 +366,9 @@ public class PatchExtractor implements PlugIn {
                     }
                 }
 
-                IJ.saveAs(patchImage, SAVE_EXT, outPatchPath); // alternative Jpg format to add Tiff
+                IJ.saveAs(patchImage, SAVE_EXT, outPatchPath);
 
-                out.println(patchName+'.' + SAVE_EXT.toLowerCase() + "," + x + "," + y + "," + R + "," + annotImgName + "," + classIdx[i]);
+                out.println(patchName+'.' + SAVE_EXT.toLowerCase() + "," + originTag + "," + originPath); // + x + "," + y + "," + R + ","
 
                 }
             }
