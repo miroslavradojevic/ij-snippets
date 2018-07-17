@@ -252,8 +252,6 @@ public class PatchExtractor implements PlugIn {
                     originStackImg.show();
                     originStackImg.setOverlay(ov);
 
-                    System.out.println("overlay size = " + ov.size());
-
                     // save overlay with the samples
                     exportOverlay(ov, outDir.getPath() + File.separator + annotImg.getTitle() + ".zip");
 
@@ -270,14 +268,9 @@ public class PatchExtractor implements PlugIn {
 
     private void exportOverlay(Overlay ov, String overlayPath){
 
-        System.out.println(overlayPath);
-        System.out.println(ov.size());
-
         RoiManager rm = new RoiManager();
 
         for (int i = 0; i < ov.size(); i++) {
-
-            System.out.println(i + " : " + (ov.get(i)!=null)  );
 
             rm.addRoi(ov.get(i));
 
@@ -326,7 +319,7 @@ public class PatchExtractor implements PlugIn {
              PrintWriter out = new PrintWriter(bw)) {
 
             if (currPatchIdx == 0) {
-                out.println("#patchFileName,tagName,originPath");
+                out.println("#className,patchFileName,originPath");
             }
 
             for (int i = 0; i < idxList.length; i++) {
@@ -343,13 +336,11 @@ public class PatchExtractor implements PlugIn {
                 String outPatchPath = outDir.getAbsolutePath() + File.separator + originTag + File.separator + patchName;
 
                 // create directory if it does not exist
+                File outDir1 = new File(outDir.getAbsolutePath() + File.separator + originTag + File.separator);
 
-                    File outDir1 = new File(outDir.getAbsolutePath() + File.separator + originTag + File.separator);
-
-                    if (! outDir1.exists()){
-                        outDir1.mkdir();
-                    }
-
+                if (! outDir1.exists()) {
+                    outDir1.mkdir();
+                }
 
                 int Wptch = (2 * R + 1) * L;
 
@@ -371,7 +362,7 @@ public class PatchExtractor implements PlugIn {
 
                 IJ.saveAs(patchImage, SAVE_EXT, outPatchPath);
 
-                out.println(patchName+'.' + SAVE_EXT.toLowerCase() + "," + originTag + "," + originPath); // + x + "," + y + "," + R + ","
+                out.println(originTag + "," + patchName+'.' + SAVE_EXT.toLowerCase() + "," + originPath);
 
                 }
             }
