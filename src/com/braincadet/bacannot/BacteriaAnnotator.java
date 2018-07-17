@@ -161,7 +161,6 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             int xPatch = overlayAnnot.get(i).getBounds().x;
             int yPatch = overlayAnnot.get(i).getBounds().y;
             int wPatch = overlayAnnot.get(i).getBounds().width;
-//                int hPatch = overlayAnnot.get(i).getBounds().height;
 
             byte[] ovAnnotArray = (byte[]) overlayAnnot.get(i).getMask().convertToByteProcessor().getPixels(); //.getMaskArray();
             byte[] imOutArray = (byte[]) imOut.getProcessor().getPixels();

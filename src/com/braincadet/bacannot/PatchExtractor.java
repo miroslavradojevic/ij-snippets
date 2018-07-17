@@ -9,6 +9,7 @@ import ij.io.FileSaver;
 import ij.io.OpenDialog;
 import ij.plugin.ContrastEnhancer;
 import ij.plugin.PlugIn;
+import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 
@@ -202,23 +203,15 @@ public class PatchExtractor implements PlugIn {
                         p.setFillColor(new Color(1f,0f,0f,0.3f));
                         ov.add(p);
 
-//                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
-//                        ov.add(pp);
                     }
-
 
                     if (DO_NEGATIVES) {
 
-                        annotImg = new ImagePlus(annotImgPath.getAbsolutePath());
-
-
-
+                        annotImg = new ImagePlus(annotImgPath.getAbsolutePath()); // reload it
 
                         IJ.run(annotImg, "Invert", "");
                         IJ.run(annotImg, "Options...", "iterations=1 count=1 black");
                         IJ.run(annotImg, "Skeletonize", "");
-
-//                        annotImg.duplicate().show();
 
                         annotImgPixels = (byte[]) annotImg.getProcessor().getPixels();
 
@@ -250,29 +243,19 @@ public class PatchExtractor implements PlugIn {
                             p.setFillColor(new Color(0f,0f,1f,0.3f));
                             ov.add(p);
 
-//                        PointRoi pp = new PointRoi(smpPos[i]%W+.5f, smpPos[i]/W+.5f);
-//                        ov.add(pp);
                         }
                     }
 
-                    annotImg.show();
-                    annotImg.setOverlay(ov);
+//                    annotImg.show();
+//                    annotImg.setOverlay(ov);
 
-//                    ImagePlus overlapImgPlus = new ImagePlus(fOrigin.getAbsolutePath());
-//                    overlapImgPlus.show();
                     originStackImg.show();
                     originStackImg.setOverlay(ov);
 
-                    //************************************************************
-                    // save used overlays
+                    System.out.println("overlay size = " + ov.size());
 
-//                    String dd = outDir.getAbsolutePath();
-//                    System.out.println(dd);
-
-//                    if (true) { // move it before the overlay shown
-//                        // extract the patches at sampled locations
-//                    }
-
+                    // save overlay with the samples
+                    exportOverlay(ov, outDir.getPath() + File.separator + annotImg.getTitle() + ".zip");
 
                 }
                 else {
@@ -283,6 +266,26 @@ public class PatchExtractor implements PlugIn {
                 System.out.println("image not byte8 or has no tif extension or no annots found.");
             }
         }
+    }
+
+    private void exportOverlay(Overlay ov, String overlayPath){
+
+        System.out.println(overlayPath);
+        System.out.println(ov.size());
+
+        RoiManager rm = new RoiManager();
+
+        for (int i = 0; i < ov.size(); i++) {
+
+            System.out.println(i + " : " + (ov.get(i)!=null)  );
+
+            rm.addRoi(ov.get(i));
+
+        }
+
+        rm.runCommand("Save", overlayPath);
+        rm.close();
+
     }
 
     private void minMaxNormalizeByteImage(ImagePlus imp){
