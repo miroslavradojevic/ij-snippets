@@ -17,7 +17,7 @@ import pandas as pd
 #####################################
 patchDir = r'C:\Users\10250153\bacteria3\data\patch'  # path to the dir with annotated patches
 patchDir = os.path.join(patchDir, '')
-fname = os.path.join(patchDir, 'patch.log')
+fname = os.path.join(patchDir, 'train', 'patch.log')
 print(fname, end='\n\n')
 
 # ys = np.array([], dtype=np.float32).reshape(0,5)# int64
