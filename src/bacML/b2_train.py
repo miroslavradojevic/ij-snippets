@@ -8,7 +8,7 @@ from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
 from sklearn.model_selection import train_test_split
 from b3_tools import load_data, systematic_resampling, updatecat, grid_sampling, testfun
-from b3_models import mycnn
+from b_models import mycnn
 import matplotlib.pyplot as plt
 
 
@@ -162,11 +162,11 @@ def b2_train(train_directory="", patch_size=20, epoch_nr=10, learning_rate=0.001
 
 # experiment parameter grid
 train_directories = ["C:\\Users\\10250153\\bacteria3\\train02"]
-patch_sizes = [16, 20]
+patch_sizes = [16, 20, 24]
 epoch_nrs = [10, 15]
-learning_rates = [0.000001, 0.00001]  # 0.001, 0.0001, ,
+learning_rates = [0.0001]  # 0.001, , ,0.000001, 0.00001
 methods = ["mycnn"]
-l2_norms = [0.01, 0.0]  # 0.0
+l2_norms = [0.00, 0.01, 0.02]
 
 for td in train_directories:
     for ps in patch_sizes:
@@ -175,4 +175,3 @@ for td in train_directories:
                 for mt in methods:
                     for l2 in l2_norms:
                         b2_train(td, ps, ep, lr, mt, l2)
-                        
