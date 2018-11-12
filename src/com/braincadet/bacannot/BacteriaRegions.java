@@ -17,7 +17,6 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.braincadet.bacannot.Constants.COLOR_ML_REGION_TRAIN;
 import static com.braincadet.bacannot.Constants.COLOR_NEGATIVE;
 import static com.braincadet.bacannot.Constants.COLOR_POSITIVE;
 
@@ -347,6 +346,7 @@ public class BacteriaRegions implements PlugIn, MouseListener, MouseMotionListen
                 drawMode = !drawMode;
                 break;
             case Constants.CHANGE_ML_REGION:
+//                selectMLRegionType();
                 switchMLRegionType();
                 break;
             default:
@@ -357,7 +357,7 @@ public class BacteriaRegions implements PlugIn, MouseListener, MouseMotionListen
 
     }
 
-    private void switchMLRegionType() {
+    private void selectMLRegionType() {
 
         String[] arrayMLRegions = new String[]{BacteriaRegionType.NEG.toString(), BacteriaRegionType.POS.toString()};
 
@@ -378,6 +378,15 @@ public class BacteriaRegions implements PlugIn, MouseListener, MouseMotionListen
             else if (regionType.equalsIgnoreCase(BacteriaRegionType.POS.toString())) {
                 currentBacteriaRegion = BacteriaRegionType.POS;
             }
+        }
+    }
+
+    private void switchMLRegionType(){
+        if (currentBacteriaRegion == BacteriaRegionType.NEG) {
+            currentBacteriaRegion = BacteriaRegionType.POS;
+        }
+        else if (currentBacteriaRegion == BacteriaRegionType.POS) {
+            currentBacteriaRegion = BacteriaRegionType.NEG;
         }
     }
 
