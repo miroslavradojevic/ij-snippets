@@ -86,7 +86,7 @@ elif method == "mycnn":
 
 # Compile model
 decay = l_rate / epoch_nr
-# sgd = SGD(lr=l_rate, momentum=0.9, decay=decay, nesterov=True)
+# sgd = SGD(learning_rate=l_rate, momentum=0.9, decay=decay, nesterov=True)
 adam = Adam(lr=l_rate, beta_1=0.9, beta_2=0.995, epsilon=1e-08, decay=decay, amsgrad=False)
 model.compile(loss='mean_squared_error', optimizer=adam, metrics=['accuracy'])
 

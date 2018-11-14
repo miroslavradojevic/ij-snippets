@@ -1,39 +1,3 @@
-import sys
-import os
-import numpy as np
-from skimage import io
-from b3_tools import get_locs
-from keras.models import model_from_json
-
-POSITIVE_VALUE = 0
-NEGATIVE_VALUE = 1  # two class problem
-
-def b2_test(test_directory):
-    return
-
-
-
-
-
-test_image_path = ""  # dir with images to test or a path to test file
-model_architecture_path = None
-model_weights_path = None
-step = None
-circ_radius_ratio = None
-enforce_calculation = None
-try:
-    test_image_path = sys.argv[1]
-    model_architecture_path = sys.argv[2]
-    step = int(sys.argv[3])
-    circ_radius_ratio = float(sys.argv[4])
-    enforce_calculation = int(sys.argv[5])
-except:
-    print('Arguments: 1-test_image_path 2-model_architecture_path 3-step 4-circ_radius_ratio 5-enforce_calculation')
-    quit()
-
-if circ_radius_ratio < 0 or circ_radius_ratio > 1:
-    circ_radius_ratio = None
-
 model_weights_path = os.path.join(os.path.abspath(os.path.join(model_architecture_path, os.pardir)), "weights.h5")
 model_info_str = os.path.basename(os.path.abspath(os.path.join(model_architecture_path, os.pardir)))
 model_info = model_info_str.split("++")
@@ -102,7 +66,6 @@ if (
         for i in range(0, len(r)):
             if annotation_found:
                 y_test[i] = 0 if test_image_annotation[r[i], c[i]] == 255 else 1  # to be compliant with b3_train and the class index formation with 2 classes
-
     else:
         D_rows = int(model.layers[0].input.shape[1])
         D_cols = int(model.layers[0].input.shape[2])
@@ -160,13 +123,13 @@ if (
         tp, fp, fn, precision, recall, f1 = (-99999, -99999, -99999, -99999, -99999, -99999)
 
     f = open(os.path.join(dmap_dir, "eval.txt"), "a")  # "w+"
-    f.write("imname, tp, fp, fn, p, r, f1, method, D, epch, lr, l2r\n")
+    f.write("imname, tp, fp, fn, p, r, f1, method, D, epch, learning_rate, l2r\n")
     f.write("%s, %d, %d, %d, %f, %f, %f, %s, %d, %d, %f, %f\n" % (
         test_image_name, tp, fp, fn, precision, recall, f1,
         model_info['name'],
         model_info['D'],
         model_info['epch'],
-        model_info['lr'],
+        model_info['learning_rate'],
         model_info['l2r']))  # model_info[model_par[3]]
     f.close()
 

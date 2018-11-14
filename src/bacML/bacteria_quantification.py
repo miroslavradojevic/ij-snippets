@@ -98,7 +98,7 @@ def CNN2(num_classes, img_wdt, img_hgt, number_epochs, learning_rate):
     # Compile model
     decay = learning_rate / number_epochs
     sgd = SGD(lr=learning_rate, momentum=0.9, decay=decay, nesterov=True)
-    adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False) # lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0.
+    adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False) # learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0.
     model.compile(loss='mean_squared_error', optimizer=adam, metrics=['accuracy'])
     return model, number_epochs
 

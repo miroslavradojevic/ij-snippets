@@ -107,7 +107,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         // update the pick circle
         OvalRoi circAdd = new OvalRoi(pickX - pickR + .0f, pickY - pickR + .0f, 2 * pickR, 2 * pickR);
-        circAdd.setStrokeColor(Color.RED);
+        circAdd.setStrokeColor(Color.YELLOW);
         circAdd.setStrokeWidth(Constants.ANNOTATOR_OUTLINE_WIDTH);
 
         if (!begunPicking) {
