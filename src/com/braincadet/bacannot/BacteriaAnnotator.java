@@ -21,6 +21,9 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
     boolean begunPicking; // denotes whether the task was started
     boolean drawMode = false; //
 
+    int countMoves = 0;
+    int CLICK_FREQUENCY = 4;
+
     ImagePlus inImg;
     ImageWindow imWind;
     ImageCanvas imCanv;
@@ -326,9 +329,14 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
         updateCircle();
 
+        countMoves++;
+        countMoves = countMoves % CLICK_FREQUENCY;
+
         if (drawMode) {
 
-            mouseClicked(e);
+            if (countMoves == 0) {
+                mouseClicked(e);
+            }
 
         }
     }

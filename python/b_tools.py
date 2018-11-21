@@ -81,6 +81,15 @@ def get_locs(n_rows, n_cols, step, D_rows, D_cols, circ_radius_ratio):
     return rows, cols
 
 
+def get_locs_random(n_rows, n_cols, D_rows, D_cols, circ_radius_ratio, nr_samples):
+    smap = np.ndarray(shape=(n_rows, n_cols), dtype='uint8') * 0
+    for row_smap in range(0, len(n_rows)):
+        for col_smap in range(0 , len(n_cols)):
+            row_smap_min = int()
+            row_smap_max = int()
+
+
+
 def testfun(a=(1, 2, 3), b=2):
     c = 0
     for i in range(0, len(a)):
