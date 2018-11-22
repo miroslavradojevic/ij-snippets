@@ -11,8 +11,8 @@ import ij.plugin.PlugIn;
 import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 
+import java.awt.*;
 import java.awt.event.*;
-import java.awt.Color;
 import java.io.File;
 
 public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionListener, KeyListener, ImageListener {
@@ -261,7 +261,54 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
         }
     }
 
+    // TODO: finish the filter!
+//    private Overlay removeOverlapping(Overlay inOvl) {
+//
+//        IJ.log("filtering... " + inOvl.size());
+//
+//        for (int i = 0; i < inOvl.size(); i++) {
+//            Rectangle inOvlRec = ((OvalRoi) inOvl.get(i)).getBounds();
+//            IJ.log("[" + inOvlRec.x + ", " + inOvlRec.y + ", " + inOvlRec.width + ", " + inOvlRec.height + "]");
+//        }
+//
+//        IJ.log("done");
+//
+//
+//        int countRepeats = 0;
+//
+//        boolean foundOverlap = true;
+//
+//        while (foundOverlap) {
+//
+//            IJ.log("iteration ");
+//
+//            foundOverlap = false;
+//
+//            for (int i = 0; i < inOvl.size(); i++) {
+//                for (int j = 0; j < inOvl.size(); j++) {
+//
+//                    if (j != i) {
+//
+//                        if (inOvl.get(i).getBounds().x >0) {
+//                        }
+//
+////                        OvalRoi circAdd = new OvalRoi(pickX - pickR + .0f, pickY - pickR + .0f, 2 * pickR, 2 * pickR);
+//
+//                    }
+//
+//                }
+//            }
+//
+//        }
+//
+//
+//        return  inOvl;
+//
+//    }
+//
     private void exportOverlayAnnot(boolean showResult, String originInfo) {
+
+        IJ.log("exportOverlayAnnot()");
 
         File directory = new File(imDir + File.separator + Constants.ANNOTATION_OUTPUT_DIR_NAME + File.separator);
 
@@ -271,6 +318,12 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
             System.out.println("Created " + directory.getAbsolutePath());
         }
+
+
+        Overlay ovlTest = new Overlay();
+        ovlTest.add(new OvalRoi(55, 66, 11, 11));
+        // filter the overlay, remove those that are already covered
+//        Overlay overlayAnnotFilt = removeOverlapping(ovlTest);
 
         ImagePlus imOut = new ImagePlus(imName, new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
 
@@ -285,6 +338,8 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             byte[] ovAnnotArray = (byte[]) overlayAnnot.get(i).getMask().convertToByteProcessor().getPixels(); //.getMaskArray();
             byte[] imOutArray = (byte[]) imOut.getProcessor().getPixels();
 
+            int countNew = 0;
+
             for (int j = 0; j < ovAnnotArray.length; j++) {
                 if ((ovAnnotArray[j] & 0xff) == 255) {
                     // get global image coords and overwrite I(xOut, yOut) to 255
@@ -292,14 +347,21 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
                     int yOut = yPatch + (j / wPatch);
 
                     if (xOut >= 0 && xOut < inImg.getWidth() && yOut >= 0 && yOut < inImg.getHeight()) {
+                        if (imOutArray[yOut * inImg.getWidth() + xOut] != (byte) 255) {
+                            countNew++;
+                        }
                         imOutArray[yOut * inImg.getWidth() + xOut] = (byte) 255;
                     }
                 }
             }
 
-            // go through 255 elements of tt and draw them to the offset location
-            rm.addRoi(overlayAnnot.get(i));
+            if (countNew > 0) {
+                rm.addRoi(overlayAnnot.get(i));
+            }
+
         }
+
+        IJ.log((overlayAnnot.size() - 1) + " >> " + rm.getCount());
 
 //      save metadata: http://imagej.1557.x6.nabble.com/Push-Metadata-td4999917.html
         imOut.setProperty("Info", originInfo); // set new info
