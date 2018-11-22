@@ -1,5 +1,5 @@
 import os
-import random
+import random as rnd
 import numpy as np
 
 
@@ -20,16 +20,22 @@ def load_data(data_dir, img_ext, annot_dirs):
 
 def systematic_resampling(weights, mask, number_samples):
     cws = np.zeros(len(weights))
+
     for i in range(len(cws)):
         if mask is None:
             cws[i] = weights[i] + (0.0 if (i == 0) else cws[i - 1])
         else:
             cws[i] = (weights[i] if (mask[i] == 255) else 0.0) + (0.0 if (i == 0) else cws[i - 1])
+
     out = np.zeros(number_samples).astype(int)
+
     totalmass = cws[len(cws) - 1]
+
     # systematic re-sampling
     i = int(0)
-    u1 = (totalmass / float(number_samples)) * random.uniform(0, 1)
+
+    u1 = (totalmass / float(number_samples)) * rnd.uniform(0, 1)
+
     for j in range(number_samples):
         uj = u1 + j * (totalmass / float(number_samples))
         while uj > cws[i]:
@@ -56,13 +62,17 @@ def updatecat(category_name, category_index, map):
         map[category_name] = category_index
     else:
         category_index = map[category_name]
+
     print(category_index, " -> ", map)
+
     return category_index, map
 
 
 def get_locs(n_rows, n_cols, step, D_rows, D_cols, circ_radius_ratio):
+
     rows = []
     cols = []
+
     for row in range(0, n_rows, step):
         for col in range(0, n_cols, step):
             row0 = int(row - D_rows / 2)
@@ -82,11 +92,48 @@ def get_locs(n_rows, n_cols, step, D_rows, D_cols, circ_radius_ratio):
 
 
 def get_locs_random(n_rows, n_cols, D_rows, D_cols, circ_radius_ratio, nr_samples):
+
     smap = np.ndarray(shape=(n_rows, n_cols), dtype='uint8') * 0
-    for row_smap in range(0, len(n_rows)):
-        for col_smap in range(0 , len(n_cols)):
-            row_smap_min = int()
-            row_smap_max = int()
+
+    for row_smap in range(0, n_rows):
+        for col_smap in range(0, n_cols):
+            row_smap_min = int(row_smap - D_rows / 2)
+            row_smap_max = int(row_smap + D_cols / 2)
+            col_smap_min = int(col_smap - D_rows / 2)
+            col_smap_max = int(col_smap + D_cols / 2)
+            if row_smap_min >= 0 and row_smap_max < n_rows and col_smap_min >= 0 and col_smap_max < n_cols:
+                if circ_radius_ratio is not None:
+                    if pow(row_smap - n_rows / 2, 2) + pow(col_smap - n_cols / 2, 2) <= pow(circ_radius_ratio * min(n_rows / 2, n_cols / 2), 2):
+                        smap[row_smap, col_smap] = 255
+                else:
+                    smap[row_smap, col_smap] = 255
+
+    # use smap[] as weight
+
+    smap = smap.reshape(np.prod(smap.shape))
+    smap = smap / 255.0
+
+    for i in range(0, np.prod(smap.shape)):
+        smap[i] *= rnd.random()
+
+    smap_locs = systematic_resampling(smap, None, nr_samples)
+
+    rows = []
+    cols = []
+
+    for i in range(0, len(smap_locs)):
+        row = smap_locs[i] // n_cols
+        col = smap_locs[i] % n_cols
+
+        rows.append(row)
+        cols.append(col)
+
+    return rows, cols
+
+
+
+
+
 
 
 
