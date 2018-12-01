@@ -278,7 +278,7 @@ y_test = np_utils.to_categorical(y_test)
 
 print("Data normalized and hot encoded. Found ", len(mapping), " classes.")
 
-print("CNN2 nodel... ")
+print("CNN2 model... ")
 model, epochs = CNN2(len(mapping), length, D, D, number_epochs, learning_rate)
 print("created.")
 

@@ -11,7 +11,7 @@ from keras.regularizers import l2
 # https://github.com/eweill/keras-deepcv/blob/master/models/classification/alexnet.py
 # https://github.com/keras-team/keras/issues/1568
 
-def mycnn(img_shape=(32, 32, 1), n_classes=2, l2_reg=0., weights=None):
+def mycnn(img_shape=(16, 16, 1), n_classes=2, l2_reg=0., weights=None):
     K.set_image_data_format("channels_last")
     # https://github.com/eweill/keras-deepcv/blob/master/models/classification/alexnet.py
     # Initialize model
@@ -21,42 +21,48 @@ def mycnn(img_shape=(32, 32, 1), n_classes=2, l2_reg=0., weights=None):
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     # alexnet.add(MaxPooling2D(pool_size=(2, 2)))
+    # 16
 
     # Layer 2
-    alexnet.add(Conv2D(256, (3, 3), padding='same'))
+    alexnet.add(Conv2D(128, (3, 3), padding='same'))
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     # alexnet.add(MaxPooling2D(pool_size=(2, 2)))
+    # 16
 
     # Layer 3
-    # alexnet.add(ZeroPadding2D((1, 1)))
-    alexnet.add(Conv2D(512, (3, 3), padding='same'))
+    alexnet.add(ZeroPadding2D((1, 1)))
+    alexnet.add(Conv2D(256, (3, 3), padding='same'))
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     alexnet.add(MaxPooling2D(pool_size=(2, 2)))
+    # 8
 
     # Layer 4
     alexnet.add(ZeroPadding2D((1, 1)))
-    alexnet.add(Conv2D(1024, (3, 3), padding='same'))
-    alexnet.add(BatchNormalization())
-    alexnet.add(Activation('relu'))
-
-    # Layer 5
-    alexnet.add(ZeroPadding2D((1, 1)))
-    alexnet.add(Conv2D(1024, (3, 3), padding='same'))
+    alexnet.add(Conv2D(256, (3, 3), padding='same'))
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     alexnet.add(MaxPooling2D(pool_size=(2, 2)))
+    # 4
+
+    # Layer 5
+    alexnet.add(ZeroPadding2D((1, 1)))
+    alexnet.add(Conv2D(256, (3, 3), padding='same'))
+    alexnet.add(BatchNormalization())
+    alexnet.add(Activation('relu'))
+    alexnet.add(MaxPooling2D(pool_size=(2, 2)))
+    # 2
 
     # Layer 6
     alexnet.add(Flatten())
-    alexnet.add(Dense(512))  # 3072
+    alexnet.add(Dense(256))  # 3072
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     alexnet.add(Dropout(0.5))
 
     # Layer 7
-    alexnet.add(Dense(1024))  # 4096
+    alexnet.add(Dense(128))  # 4096 # 1024
     alexnet.add(BatchNormalization())
     alexnet.add(Activation('relu'))
     alexnet.add(Dropout(0.5))
