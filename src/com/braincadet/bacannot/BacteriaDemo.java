@@ -7,9 +7,7 @@ import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
-import ij.plugin.Text;
 import ij.process.FloatProcessor;
-import ij.text.TextPanel;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -115,9 +113,12 @@ public class BacteriaDemo implements PlugIn, MouseListener, MouseMotionListener,
                 IJ.run(quanImg, "Dilate", "");
             }
 
-            IJ.wait(500);
+            IJ.wait(750);
 
             quanImg.show();
+            quanImg.getWindow().removeKeyListener(IJ.getInstance());
+            quanImg.getWindow().getCanvas().removeKeyListener(IJ.getInstance());
+            quanImg.getCanvas().removeKeyListener(IJ.getInstance());
             IJ.run(quanImg, "Yellow", "");
 
             ImagePlus i1 = IJ.openImage(imPath);
