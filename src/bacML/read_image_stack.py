@@ -17,7 +17,7 @@ if not os.path.isfile(image_path):
     quit()
 
 if not image_path.endswith(".tif"):
-    print(image_path, " needs to be tif.")
+    print(image_path, " needs to be tif (stack).")
 
 img_uint8 = io.imread(image_path)
 
