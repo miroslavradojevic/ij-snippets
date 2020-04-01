@@ -1,0 +1,11 @@
+# ignore a single file
+mycode.class
+
+# ignore an entire directory
+/build/
+
+# ignore a file type
+*.jar
+
+# add an exception (using !) to the preceding rule to track a specific file
+#!plate_det.jar
