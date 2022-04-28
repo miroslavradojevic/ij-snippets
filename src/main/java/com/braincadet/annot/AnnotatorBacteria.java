@@ -38,7 +38,7 @@ public class AnnotatorBacteria implements PlugIn, MouseListener, MouseMotionList
         inFolder = dc.getDirectory();
         imPath = dc.getPath();
         if (imPath == null) {
-            IJ.showStatus("Could not open path: " + imPath);
+            IJ.showStatus("Could not open path");
             return;
         }
 
@@ -52,8 +52,6 @@ public class AnnotatorBacteria implements PlugIn, MouseListener, MouseMotionList
         if (inImg == null) {
             IJ.log("Could not open image (it was null) at: " + imPath);
         }
-
-        System.out.println(inImg.getTitle());
 
         if (!Constants.isValidImageExtension(inImg.getTitle())) {
             IJ.log("Image extension not accepted.");
@@ -213,15 +211,10 @@ public class AnnotatorBacteria implements PlugIn, MouseListener, MouseMotionList
     }
 
     public void mouseClicked(MouseEvent e) {
-
         pickX = imCanv.offScreenX(e.getX());
-
         pickY = imCanv.offScreenY(e.getY());
-
         imCanv.getImage().updateAndDraw();
-
         addCircle(Constants.COLOR_ANNOT);
-
     }
 
     public void keyTyped(KeyEvent e) {
