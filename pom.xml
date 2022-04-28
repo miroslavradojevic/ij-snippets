@@ -34,8 +34,8 @@
     </developers>
 
     <properties>
-        <package-name>com.braincadet.annotbat</package-name><!-- project package prefix -->
-        <main-class>com.braincadet.annotbat.Test</main-class><!-- project main class here, delete for none -->
+        <package-name>com.braincadet.annot</package-name><!-- project package prefix -->
+        <main-class>com.braincadet.annot.Test</main-class><!-- project main class here, delete for none -->
         <license.licenseName>cc0</license.licenseName><!-- license-maven-plugin license code here -->
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
