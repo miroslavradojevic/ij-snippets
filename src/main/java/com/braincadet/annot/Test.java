@@ -1,4 +1,4 @@
-package com.braincadet.annotbat;
+package com.braincadet.annot;
 
 import ij.IJ;
 import ij.plugin.PlugIn;

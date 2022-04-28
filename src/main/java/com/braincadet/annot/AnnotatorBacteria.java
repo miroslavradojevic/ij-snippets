@@ -1,4 +1,4 @@
-package com.braincadet.annotbac;
+package com.braincadet.annot;
 
 import ij.IJ;
 import ij.ImageListener;
@@ -15,7 +15,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 
-public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionListener, KeyListener, ImageListener {
+public class AnnotatorBacteria implements PlugIn, MouseListener, MouseMotionListener, KeyListener, ImageListener {
 
     float pickX, pickY, pickR; // 'picked' circle params
     boolean begunPicking; // denotes whether the task was started
@@ -32,7 +32,7 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
 
     public void run(String s) {
 
-        String inFolder = Prefs.get("com.braincadet.annotbac.inFolder", System.getProperty("user.home"));
+        String inFolder = Prefs.get("com.braincadet.annot.inFolder", System.getProperty("user.home"));
         OpenDialog.setDefaultDirectory(inFolder);
         OpenDialog dc = new OpenDialog("Select file");
         inFolder = dc.getDirectory();
@@ -42,13 +42,18 @@ public class BacteriaAnnotator implements PlugIn, MouseListener, MouseMotionList
             return;
         }
 
-        Prefs.set("com.braincadet.annotbac.inFolder", inFolder);
+        Prefs.set("com.braincadet.annot.inFolder", inFolder);
+
+        System.out.println(inFolder);
+        System.out.println(imPath);
 
         inImg = new ImagePlus(imPath);
 
         if (inImg == null) {
             IJ.log("Could not open image (it was null) at: " + imPath);
         }
+
+        System.out.println(inImg.getTitle());
 
         if (!Constants.isValidImageExtension(inImg.getTitle())) {
             IJ.log("Image extension not accepted.");

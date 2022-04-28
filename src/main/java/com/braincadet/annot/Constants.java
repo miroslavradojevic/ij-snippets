@@ -1,4 +1,4 @@
-package com.braincadet.annotbac;
+package com.braincadet.annot;
 
 import java.awt.*;
 
@@ -87,7 +87,9 @@ public class Constants {
     }
 
     public static boolean isValidImageExtension(String imageTitle) {
+        System.out.println(imageTitle);
         return Tools.getFileExtension(imageTitle).equalsIgnoreCase("TIF") ||
-                Tools.getFileExtension(imageTitle).equalsIgnoreCase("JPG");
+                Tools.getFileExtension(imageTitle).equalsIgnoreCase("JPG") ||
+                Tools.getFileExtension(imageTitle).equalsIgnoreCase("RAW");
     }
 }
