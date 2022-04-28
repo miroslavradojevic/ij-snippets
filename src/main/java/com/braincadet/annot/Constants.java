@@ -50,7 +50,7 @@ public class Constants {
     public static final Color COLOR_IGNORE = Color.CYAN;
 
     /**  */
-    public static final Color COLOR_ANNOT = new Color(1f, 1f, 0f, .6f); // semi-transparent yellow
+    public static final Color COLOR_ANNOT = new Color(1f, 1f, 0f, .4f); // semi-transparent yellow
 
     /**  */
     public static final Color COLOR_ML_REGION_TRAIN = new Color(1f, 0f, 0f, .5f); // region used to sample for train set
@@ -87,9 +87,7 @@ public class Constants {
     }
 
     public static boolean isValidImageExtension(String imageTitle) {
-        System.out.println(imageTitle);
         return Tools.getFileExtension(imageTitle).equalsIgnoreCase("TIF") ||
-                Tools.getFileExtension(imageTitle).equalsIgnoreCase("JPG") ||
-                Tools.getFileExtension(imageTitle).equalsIgnoreCase("RAW");
+                Tools.getFileExtension(imageTitle).equalsIgnoreCase("JPG");
     }
 }
