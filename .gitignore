@@ -13,3 +13,4 @@
 
 # ignore the entire contents of build output directory in the repository, including all of its files and subdirectories
 target/
+/IJ_Snippets.iml
