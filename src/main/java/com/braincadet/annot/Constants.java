@@ -31,6 +31,9 @@ public class Constants {
     /** Keyboard command to start with periodic clicking while moving the mouse (drawing mode) */
     public static final char PERIODIC_CLICK = 'p';
 
+    /** Keyboard command to show help window with command overview */
+    public static final char HELP = 'h';
+
     /** Keyboard command to increase the size of the circular element */
     public static final char INCREASE_CIRCLE_RADIUS = 'u';
 

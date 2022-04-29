@@ -256,8 +256,8 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         }
 
 
-        Overlay ovlTest = new Overlay();
-        ovlTest.add(new OvalRoi(55, 66, 11, 11));
+//        Overlay ovlTest = new Overlay();
+//        ovlTest.add(new OvalRoi(55, 66, 11, 11));
         // filter the overlay, remove those that are already covered
 //        Overlay overlayAnnotFilt = removeOverlapping(ovlTest);
 
@@ -265,11 +265,17 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
         RoiManager rm = new RoiManager();
 
+        IJ.log("overlay elements: " + (overlayAnnot.size()-1));
+
         for (int i = 0; i < overlayAnnot.size() - 1; i++) { // exclude the last one because it is the pointer circle
 
             int xPatch = overlayAnnot.get(i).getBounds().x;
             int yPatch = overlayAnnot.get(i).getBounds().y;
             int wPatch = overlayAnnot.get(i).getBounds().width;
+
+            IJ.log(xPatch + ", " + yPatch + ", " + wPatch);
+
+            IJ.log("" + overlayAnnot.get(i).getProperties());
 
             byte[] ovAnnotArray = (byte[]) overlayAnnot.get(i).getMask().convertToByteProcessor().getPixels(); //.getMaskArray();
             byte[] imOutArray = (byte[]) imOut.getProcessor().getPixels();
@@ -377,7 +383,10 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
             removeCircle();
         } else if (e.getKeyChar() == Constants.PERIODIC_CLICK) {
             drawMode = !drawMode;
+        } else if (e.getKeyChar() == Constants.HELP) {
+            IJ.log("help()");
         }
+
         updateCircle();
     }
 
@@ -412,4 +421,5 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
     @Override
     public void imageUpdated(ImagePlus ip) {}
+
 }
