@@ -1,6 +1,6 @@
-## ImageJ snippets
+### ImageJ snippets
 
-### To compile using [IntelliJ IDEA](https://www.jetbrains.com/idea/) using Maven
+#### To compile using [IntelliJ IDEA](https://www.jetbrains.com/idea/) using Maven
 Install and open IntelliJ, if opened first time select *New Project*.
 + Name: ij-snippets
 + Location: $SRC_DIR (directory where the _ij-snippets_ repository is cloned)
@@ -12,7 +12,7 @@ When using pom.xml to build the project, open Maven toolbar an double click Proj
 
 Compiled IJ_Snippets-0.0.1.jar will be available in $SRC_DIR/ij-snippets/target/
 
-### To compile plugin .java in terminal
+#### To compile plugin .java in terminal
 Use _javac_, with _ij.jar_ in classpath
 ```
 #!bash
