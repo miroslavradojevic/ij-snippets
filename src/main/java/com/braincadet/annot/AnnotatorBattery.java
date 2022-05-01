@@ -1,13 +1,11 @@
 package com.braincadet.annot;
 
-import ij.IJ;
-import ij.ImageListener;
-import ij.ImagePlus;
-import ij.Prefs;
+import ij.*;
 import ij.gui.*;
 import ij.io.FileInfo;
 import ij.io.FileSaver;
 import ij.io.OpenDialog;
+import ij.measure.Calibration;
 import ij.plugin.PlugIn;
 import ij.plugin.Raw;
 import ij.plugin.frame.RoiManager;
@@ -23,11 +21,12 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
     boolean begunPicking; // denotes whether the task was started
     boolean drawMode = false; // chooses whether to start periodic clicking while moving mouse
     int countMoves = 0;
-    int CLICK_FREQUENCY = 4;
+    int CLICK_FREQUENCY = 5;
     ImagePlus inImg;
     ImageWindow imWind;
     ImageCanvas imCanv;
     String imPath, imDir, imName;
+    int imStackSize;
     Overlay overlayAnnot;
 
     @Override
@@ -39,14 +38,14 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         inFolder = dc.getDirectory();
         imPath = dc.getPath();
         if (imPath == null) {
-            IJ.showStatus("Could not open selected image path");
+            IJ.log("Could not open selected image path");
             return;
         }
 
         Prefs.set("com.braincadet.annot.inFolder", inFolder);
 
-        System.out.println("inFolder="+inFolder);
-        System.out.println("imPath="+imPath);
+        IJ.log("inFolder="+inFolder);
+        IJ.log("imPath="+imPath);
 
         String imExt = Tools.getFileExtension(imPath);
 
@@ -63,9 +62,9 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
             fi.height=500; // TODO: parse from the image name
             fi.nImages=80; // TODO: parse from the image name
             fi.intelByteOrder = true;
-            fi.fileType=FileInfo.GRAY32_UNSIGNED;
+            fi.fileType=FileInfo.GRAY32_FLOAT;
             fi.fileFormat=FileInfo.RAW;
-            System.out.println("w=["+fi.width+"], h=["+fi.height+"], nImages=["+fi.nImages+"], intelByteOrder=["+fi.intelByteOrder+"], fileType=["+fi.fileType+"], fileFormat=["+fi.fileFormat+"]");
+            IJ.log("w=["+fi.width+"], h=["+fi.height+"], nImages=["+fi.nImages+"], intelByteOrder=["+fi.intelByteOrder+"], fileType=["+fi.fileType+"], fileFormat=["+fi.fileFormat+"]");
             inImg = Raw.open(imPath, fi);
         }
         else {
@@ -73,21 +72,22 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
             return;
         }
 
-        System.out.println("title=["+inImg.getTitle()+"], w=["+inImg.getWidth()+"], h=["+inImg.getHeight()+"], l=["+inImg.getStack().getSize()+"]");
+        IJ.log("title=["+inImg.getTitle()+"], w=["+inImg.getWidth()+"], h=["+inImg.getHeight()+"], l=["+inImg.getStackSize()+"]");
 
-        pickR = 10; // initial circle size
+        imStackSize = inImg.getStackSize();
+
+        pickR = 0.05f*Math.min(inImg.getWidth(), inImg.getHeight()); // initial circle size
         pickX = 0;
         pickY = 0;
 
         imDir = inImg.getOriginalFileInfo().directory;
         imName = inImg.getShortTitle();
 
-        System.out.println("imDir="+imDir);
-        System.out.println("imName="+imName);
+        IJ.log("imDir="+imDir);
+        IJ.log("imName="+imName);
 
         // initialize Overlays with the annotations encountered in ./ANNOTATION_OUTPUT_DIR_NAME/
         overlayAnnot = new Overlay();
-
         // read existing annotation overlay if existent
         File ff = new File(imDir + File.separator + Constants.ANNOTATION_OUTPUT_DIR_NAME + File.separator + imName + ".zip");
 
@@ -124,13 +124,32 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         imWind.addKeyListener(this);
         ImagePlus.addImageListener(this);
 
-        IJ.showStatus("loaded: " + imName);
         IJ.setTool("hand");
+        IJ.log("Begin with anotations...");
+    }
 
+    /** Returns the current cursor layer index. */
+    public int getCursorZ() {
+
+        Calibration cal = imCanv.getImage().getCalibration();
+
+        if (imCanv.getImage().getProperty("FHT")!=null)
+            return 0;
+
+        int z = 0;
+
+        if (imCanv.getImage().getStackSize()>1) {
+            Roi roi2 = imCanv.getImage().getRoi();
+            if (roi2==null || roi2.getState()==Roi.NORMAL) {
+                int z1 = imCanv.getImage().isDisplayedHyperStack()?imCanv.getImage().getSlice()-1:imCanv.getImage().getCurrentSlice()-1;
+                z = (int)cal.getZ(z1);
+            }
+        }
+
+        return z;
     }
 
     private void addCircle(Color col) {
-
         // use pickX, pickY and pickR to check if it does not overlap
         for (int i = 0; i < overlayAnnot.size() - 1; i++) { // check all the previous ones
 
@@ -151,12 +170,12 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
             // allow only ignores on top of ignores
             if (col.equals(Constants.COLOR_IGNORE)) {
                 if (overlap && !cl.equals(Constants.COLOR_IGNORE)) {
-                    IJ.showStatus("Ignore: cannot be added on top of existing non-ignore");
+                    IJ.log("Ignore: cannot be added on top of existing non-ignore");
                     return;
                 }
             } else {
                 if (overlap) {
-                    IJ.showStatus("non-ignore cannot be added on top of anything");
+                    IJ.log("non-ignore cannot be added on top of anything");
                     return;
                 }
             }
@@ -166,18 +185,20 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         OvalRoi ccc = cc;
         cc.setFillColor(col);
         cc.setStrokeColor(col);
+//        IJ.log("current stack layer="+imCanv.getImage().getLocationAsString((int)pickX, (int)pickY));
+//        IJ.log("current stack layer="+getCursorZ()+1);
+        cc.setPosition(getCursorZ()+1); // Overlay indexing: setPosition(n) 1<=n<=nslices
 
         if (begunPicking) {
             overlayAnnot.remove(overlayAnnot.size() - 1);   // the last one is always the currently plotted
-            overlayAnnot.add(cc);
-            overlayAnnot.add(ccc);
+            overlayAnnot.add(cc); // cc.getPosition()
+            overlayAnnot.add(ccc); // ccc.getPosition()
         }
 
         imCanv.setOverlay(overlayAnnot);
         imCanv.getImage().updateAndDraw();
 
-        IJ.showStatus("added, current number of annotations: " + (overlayAnnot.size() - 1));
-
+//        IJ.log("added, annotation has " + (overlayAnnot.size() - 1) + " elements");
     }
 
     @Override
@@ -244,28 +265,26 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
     private void exportOverlayAnnot(boolean showResult, String originInfo) {
 
-        IJ.log("exportOverlayAnnot()");
-
         File directory = new File(imDir + File.separator + Constants.ANNOTATION_OUTPUT_DIR_NAME + File.separator);
 
         if (!directory.exists()) {
 
-            directory.mkdir(); // mkdirs(); for subdirs
+            directory.mkdir(); // mkdirs() for subdirs
 
-            System.out.println("Created " + directory.getAbsolutePath());
+            IJ.log("Created " + directory.getAbsolutePath());
         }
 
+//        IJ.log("output " + inImg.getWidth() +", "+ inImg.getHeight()+", "+imStackSize);
 
-//        Overlay ovlTest = new Overlay();
-//        ovlTest.add(new OvalRoi(55, 66, 11, 11));
-        // filter the overlay, remove those that are already covered
-//        Overlay overlayAnnotFilt = removeOverlapping(ovlTest);
-
-        ImagePlus imOut = new ImagePlus(imName, new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
+        ImageStack isOut = new ImageStack(inImg.getWidth(), inImg.getHeight());
+        for (int i = 0; i < imStackSize; i++) {
+            isOut.addSlice(new ByteProcessor(inImg.getWidth(), inImg.getHeight()));
+        }
+        ImagePlus imOut = new ImagePlus(imName, isOut);
 
         RoiManager rm = new RoiManager();
 
-        IJ.log("overlay elements: " + (overlayAnnot.size()-1));
+        IJ.log((overlayAnnot.size()-1)+ " overlay elements");
 
         for (int i = 0; i < overlayAnnot.size() - 1; i++) { // exclude the last one because it is the pointer circle
 
@@ -273,12 +292,10 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
             int yPatch = overlayAnnot.get(i).getBounds().y;
             int wPatch = overlayAnnot.get(i).getBounds().width;
 
-            IJ.log(xPatch + ", " + yPatch + ", " + wPatch);
-
-            IJ.log("" + overlayAnnot.get(i).getProperties());
+//            IJ.log("x="+xPatch + ", y=" + yPatch + ", w=" + wPatch + ", z=" + overlayAnnot.get(i).getPosition());
 
             byte[] ovAnnotArray = (byte[]) overlayAnnot.get(i).getMask().convertToByteProcessor().getPixels(); //.getMaskArray();
-            byte[] imOutArray = (byte[]) imOut.getProcessor().getPixels();
+            byte[] imOutArray = (byte[]) imOut.getStack().getProcessor(overlayAnnot.get(i).getPosition()).getPixels(); // 1<=n<=nslices
 
             int countNew = 0;
 
@@ -312,7 +329,7 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         FileSaver fs = new FileSaver(imOut);
         String imOutPath = directory.getPath() + File.separator + imName + ".tif";
         fs.saveAsTiff(imOutPath);
-        System.out.println("Exported:\n" + imOutPath);
+        IJ.log("Exported:\n" + imOutPath);
 
         rm.runCommand("Save", directory.getPath() + File.separator + imName + ".zip");
         rm.moveRoisToOverlay(imOut);
@@ -365,8 +382,8 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
         }
 
-        if (!found) IJ.showStatus("nothing to remove");
-        else IJ.showStatus("removed, current annot ovly size: " + (overlayAnnot.size() - 1));
+        if (!found) IJ.log("nothing to remove");
+        else IJ.log("removed, current annotation overlay size: " + (overlayAnnot.size() - 1));
 
     }
 
@@ -384,9 +401,16 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         } else if (e.getKeyChar() == Constants.PERIODIC_CLICK) {
             drawMode = !drawMode;
         } else if (e.getKeyChar() == Constants.HELP) {
-            IJ.log("help()");
+            IJ.showMessage("Keyboard commands",
+                    "h:\thelp\n"+
+                            "p:\tactivate/deactivate draw mode (periodic click)\n"+
+                            "d:\tdelete underlying element (corrections)\n"+
+                            "+:\tzoom canvas in\n"+
+                            "-:\tzoom canvas out\n"+
+                            "u:\tincrease circle radius\n"+
+                            "j:\tdecrease circle radius\n"+
+                            "e:\texport current annotation");
         }
-
         updateCircle();
     }
 
@@ -403,8 +427,13 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
     public void imageClosed(ImagePlus ip) {
         String closedImageName = ip.getTitle();
         String imputImageName = inImg.getTitle();
+        IJ.log(imputImageName);
+        IJ.log("closed: " + inImg.getStack().getWidth() + ", " + inImg.getStack().getHeight() + ", " + imStackSize);
 
         if (closedImageName.equals((imputImageName))) {
+
+            IJ.log(overlayAnnot.size()+" items");
+
             exportAnnotation(imPath, imName);
 
             if (imWind != null)
@@ -415,7 +444,7 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
             ImagePlus.removeImageListener(this);
         } else {
-            System.out.println("Closed image was not the input image.");
+            IJ.log("Closed image was not the input image.");
         }
     }
 
