@@ -12,7 +12,8 @@ When using pom.xml to build the project, open Maven toolbar an double click Proj
 
 Compiled IJ_Snippets-0.0.1.jar will be available in $SRC_DIR/ij-snippets/target/
 
-### To compile plugin .java in terminal, javac needs ij.jar in classpath
+### To compile plugin .java in terminal
+Use _javac_, with _ij.jar_ in classpath
 ```
 #!bash
 cd src
@@ -31,7 +32,7 @@ java -jar $ImageJ_Home/ij.jar -ijpath $ImageJ_Home/plugins/
 ```
 and follow **menu**: *ImageJ>Plugins>Some Plugin*
 
-Some Plugin can be:
+Some_Plugin can be:
 
 * Mouse_Listener.java -- listens and plot the coordinates of the mouse clicks over the opened (512,512,120) blank image stack, useful to record the mouse pinpointing, make point annotations
 
