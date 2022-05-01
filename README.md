@@ -1,7 +1,7 @@
 ## ImageJ snippets
 
 ### To compile using [IntelliJ IDEA](https://www.jetbrains.com/idea/) using Maven
-Install and open IntelliJ, if opened first time select New Project.
+Install and open IntelliJ, if opened first time select *New Project*.
 
 
 ### To compile plugin .java in terminal, javac needs ij.jar in classpath
