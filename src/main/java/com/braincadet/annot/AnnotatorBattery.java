@@ -29,7 +29,6 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
     int imStackSize;
     Overlay overlayAnnot;
 
-    @Override
     public void run(String s) {
 
         String inFolder = Prefs.get("com.braincadet.annot.inFolder", System.getProperty("user.home"));
@@ -201,7 +200,6 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 //        IJ.log("added, annotation has " + (overlayAnnot.size() - 1) + " elements");
     }
 
-    @Override
     public void mouseClicked(MouseEvent e) {
         pickX = imCanv.offScreenX(e.getX());
         pickY = imCanv.offScreenY(e.getY());
@@ -209,19 +207,14 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         addCircle(Constants.COLOR_ANNOT);
     }
 
-    @Override
     public void mousePressed(MouseEvent e) {}
 
-    @Override
     public void mouseReleased(MouseEvent e) {}
 
-    @Override
     public void mouseEntered(MouseEvent e) {}
 
-    @Override
     public void mouseExited(MouseEvent e) {}
 
-    @Override
     public void mouseDragged(MouseEvent e) {}
 
     private void updateCircle() {
@@ -244,7 +237,6 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
     }
 
-    @Override
     public void mouseMoved(MouseEvent e) {
         pickX = imCanv.offScreenX(e.getX());
         pickY = imCanv.offScreenY(e.getY());
@@ -387,7 +379,6 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
 
     }
 
-    @Override
     public void keyTyped(KeyEvent e) {
         pickR = Constants.modifyCircleRadius(e.getKeyChar(), pickR, Math.min(inImg.getWidth(), inImg.getHeight()), Constants.R_MIN + Constants.R_STEP);
         if (e.getKeyChar() == '+') {
@@ -414,16 +405,12 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         updateCircle();
     }
 
-    @Override
     public void keyPressed(KeyEvent e) {}
 
-    @Override
     public void keyReleased(KeyEvent e) {}
 
-    @Override
     public void imageOpened(ImagePlus ip) {}
 
-    @Override
     public void imageClosed(ImagePlus ip) {
         String closedImageName = ip.getTitle();
         String imputImageName = inImg.getTitle();
@@ -448,7 +435,6 @@ public class AnnotatorBattery implements PlugIn, MouseListener, MouseMotionListe
         }
     }
 
-    @Override
     public void imageUpdated(ImagePlus ip) {}
 
 }
