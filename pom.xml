@@ -35,10 +35,10 @@
 
     <properties>
         <package-name>com.braincadet.annot</package-name><!-- project package prefix -->
-        <main-class>com.braincadet.annot.Test</main-class><!-- project main class here, delete for none -->
+        <main-class>com.braincadet.annot.AnnotatorBattery</main-class><!-- project main class here, delete for none -->
         <license.licenseName>cc0</license.licenseName><!-- license-maven-plugin license code here -->
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+<!--        <maven.compiler.source>11</maven.compiler.source>-->
+<!--        <maven.compiler.target>11</maven.compiler.target>-->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
