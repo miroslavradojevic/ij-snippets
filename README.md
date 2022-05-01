@@ -2,7 +2,15 @@
 
 ### To compile using [IntelliJ IDEA](https://www.jetbrains.com/idea/) using Maven
 Install and open IntelliJ, if opened first time select *New Project*.
++ Name: ij-snippets
++ Location: $SRC_DIR (directory where the _ij-snippets_ repository is cloned)
++ Project should be created in: $SRC_DIR/ij-snippets
++ Language: Java
++ Build system: Maven
 
+When using pom.xml to build the project, open Maven toolbar an double click ProjectName (IJ_Snippets)>Lifecycle>package
+
+Compiled IJ_Snippets-0.0.1.jar will be available in $SRC_DIR/ij-snippets/target/
 
 ### To compile plugin .java in terminal, javac needs ij.jar in classpath
 ```
