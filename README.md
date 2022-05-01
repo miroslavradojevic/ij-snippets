@@ -1,6 +1,10 @@
-# Handy ImageJ plugin snippets
+## ImageJ snippets
 
-To compile plugin .java in terminal, javac needs ij.jar in classpath
+### To compile using [IntelliJ IDEA](https://www.jetbrains.com/idea/) using Maven
+Install and open IntelliJ, if opened first time select New Project.
+
+
+### To compile plugin .java in terminal, javac needs ij.jar in classpath
 ```
 #!bash
 cd src
